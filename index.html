@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPERATION: CRASH TEST</title>
+<style>
+  :root{
+    --bg:#03100a;
+    --panel:#03150c;
+    --fg:#3dff7a;
+    --fg-dim:#1f7a42;
+    --fg-bright:#b6ffce;
+    --amber:#ffcf4d;
+    --danger:#ff5a5a;
+    --border: rgba(61,255,122,0.35);
+    --glow: 0 0 6px rgba(61,255,122,0.55), 0 0 14px rgba(61,255,122,0.25);
+    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Fira Mono", Menlo, Consolas, "Courier New", monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:var(--mono);
+  }
+  body{
+    display:flex; flex-direction:column;
+    min-height:100vh;
+    background-image:
+      radial-gradient(ellipse at top, rgba(61,255,122,0.06), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+  }
+  ::selection{ background:var(--fg); color:#000; }
+
+  .crt-overlay{
+    pointer-events:none;
+    position:fixed; inset:0;
+    background: linear-gradient(rgba(18,255,120,0.02) 50%, rgba(0,0,0,0.05) 50%);
+    background-size: 100% 3px;
+    z-index:50;
+    mix-blend-mode:overlay;
+  }
+
+  .topbar{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    gap:8px;
+    padding:10px 16px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(61,255,122,0.06), transparent);
+    position:sticky; top:0; z-index:10;
+  }
+  .brand{
+    font-weight:700; letter-spacing:1px; font-size:14px; color:var(--fg-bright);
+    text-shadow:var(--glow);
+  }
+  .brand small{ display:block; font-weight:400; color:var(--fg-dim); font-size:10px; letter-spacing:2px; }
+  .statusgroup{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .pill{
+    border:1px solid var(--border);
+    padding:5px 10px;
+    font-size:11px;
+    border-radius:2px;
+    color:var(--fg);
+    background:rgba(61,255,122,0.05);
+    white-space:nowrap;
+  }
+  .pill b{ color:var(--fg-bright); }
+  .pill.warn{ color:var(--amber); border-color:rgba(255,207,77,0.5); }
+  .pill.danger{ color:var(--danger); border-color:rgba(255,90,90,0.6); animation:pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .iconbtn{
+    background:transparent; border:1px solid var(--border); color:var(--fg);
+    font-family:var(--mono); font-size:11px; padding:5px 10px; cursor:pointer;
+    border-radius:2px;
+  }
+  .iconbtn:hover{ background:rgba(61,255,122,0.12); }
+
+  main{ flex:1; display:flex; flex-direction:column; min-height:0; }
+
+  .briefing{
+    max-width:760px; margin:0 auto; padding:28px 18px 60px;
+    animation:flicker-in 0.6s ease-out;
+  }
+  @keyframes flicker-in{ from{ opacity:0; } to{ opacity:1; } }
+  .briefing h1{
+    font-size:clamp(22px,4vw,34px);
+    color:var(--fg-bright); text-shadow:var(--glow);
+    letter-spacing:2px; margin:6px 0 0;
+  }
+  .briefing .tag{ color:var(--fg-dim); font-size:12px; letter-spacing:3px; }
+  .brief-box{
+    border:1px solid var(--border); padding:18px 20px; margin-top:22px;
+    background:rgba(61,255,122,0.04); line-height:1.7; font-size:14px;
+  }
+  .brief-box h2{ color:var(--fg-bright); font-size:13px; letter-spacing:2px; margin:18px 0 8px; }
+  .brief-box h2:first-child{ margin-top:0; }
+  .brief-box ol{ margin:6px 0 0 18px; padding:0; }
+  .brief-box .classified{ color:var(--danger); font-weight:700; letter-spacing:2px; }
+  .begin-btn{
+    display:block; width:100%; margin-top:26px;
+    background:rgba(61,255,122,0.12); color:var(--fg-bright);
+    border:1px solid var(--fg); padding:16px; font-size:16px;
+    font-family:var(--mono); letter-spacing:3px; cursor:pointer;
+    text-shadow:var(--glow); box-shadow: inset 0 0 20px rgba(61,255,122,0.08);
+  }
+  .begin-btn:hover{ background:rgba(61,255,122,0.22); }
+  .begin-btn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--fg-bright); outline-offset:2px;
+  }
+
+  .termwrap{
+    flex:1; display:flex; flex-direction:column; min-height:0;
+    max-width:900px; width:100%; margin:0 auto; padding:12px 14px 0;
+  }
+  .terminal{
+    flex:1; overflow-y:auto; padding:10px 4px 10px 0;
+    font-size:13.5px; line-height:1.55;
+  }
+  .terminal::-webkit-scrollbar{ width:8px; }
+  .terminal::-webkit-scrollbar-thumb{ background:var(--fg-dim); }
+  .line{ white-space:pre-wrap; word-break:break-word; margin:2px 0; }
+  .line.cmd{ color:var(--fg-bright); }
+  .line.cmd::before{ content:"> "; color:var(--fg-dim); }
+  .line.out{ color:var(--fg); }
+  .line.system{ color:var(--fg-dim); }
+  .line.warn{ color:var(--amber); }
+  .line.danger{ color:var(--danger); }
+  .line.bright{ color:var(--fg-bright); font-weight:700; }
+
+  .inputrow{
+    display:flex; align-items:center; gap:8px;
+    border-top:1px solid var(--border); padding:10px 0 14px;
+  }
+  .inputrow .prompt{ color:var(--fg-bright); font-weight:700; }
+  .inputrow input[type=text]{
+    flex:1; background:transparent; border:none; color:var(--fg-bright);
+    font-family:var(--mono); font-size:14px; caret-color:var(--fg);
+  }
+  .inputrow input[type=text]:focus{ outline:none; }
+  .inputrow button{
+    background:rgba(61,255,122,0.12); color:var(--fg-bright); border:1px solid var(--border);
+    font-family:var(--mono); padding:8px 14px; cursor:pointer; font-size:12px;
+  }
+  .inputrow button:hover{ background:rgba(61,255,122,0.22); }
+
+  .bottombar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0 14px; gap:8px; flex-wrap:wrap;
+  }
+  .bottombar .stage{ font-size:11px; color:var(--fg-dim); letter-spacing:2px; }
+  .bottombar .stage b{ color:var(--fg-bright); }
+
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none;
+    align-items:center; justify-content:center; z-index:100; padding:16px;
+  }
+  .modal-backdrop.open{ display:flex; }
+  .modal{
+    background:var(--panel); border:1px solid var(--fg); padding:22px;
+    max-width:420px; width:100%; box-shadow:var(--glow);
+  }
+  .modal h3{ margin:0 0 10px; color:var(--fg-bright); letter-spacing:1px; font-size:15px; }
+  .modal p{ font-size:13px; line-height:1.5; color:var(--fg); }
+  .modal .modal-actions{ display:flex; gap:10px; margin-top:16px; justify-content:flex-end; }
+  .modal button{
+    background:transparent; border:1px solid var(--border); color:var(--fg);
+    font-family:var(--mono); padding:8px 14px; cursor:pointer; font-size:12px;
+  }
+  .modal button.primary{ border-color:var(--fg); color:var(--fg-bright); }
+  .modal button.danger{ border-color:var(--danger); color:var(--danger); }
+
+  /* Discreet teacher test panel: reached only via Ctrl+Shift+T, never a visible link */
+  .testpanel{
+    position:fixed; bottom:12px; right:12px; z-index:200;
+    background:#000; border:1px solid var(--amber); padding:12px; font-size:11px;
+    width:230px; display:none; color:var(--amber);
+  }
+  .testpanel.open{ display:block; }
+  .testpanel h4{ margin:0 0 8px; font-size:11px; letter-spacing:2px; }
+  .testpanel button, .testpanel select{
+    width:100%; margin-top:6px; background:#111; color:var(--amber);
+    border:1px solid var(--amber); font-family:var(--mono); padding:6px; font-size:11px; cursor:pointer;
+  }
+
+  @media (max-width:520px){
+    .brief-box{ font-size:13px; padding:14px; }
+    .terminal{ font-size:12.5px; }
+  }
+
+  /* ---------- Game layout: terminal + persistent sidebar ---------- */
+  .gamewrap{
+    flex:1; display:flex; gap:14px; min-height:0;
+    max-width:1100px; width:100%; margin:0 auto; padding:12px 14px 0;
+  }
+  .gamewrap .termwrap{ flex:1; max-width:none; margin:0; padding:0; min-width:0; }
+  .sidebar{
+    width:220px; flex-shrink:0;
+    border:1px solid var(--border); background:rgba(61,255,122,0.04);
+    padding:12px; font-size:12px; align-self:flex-start;
+  }
+  .sidebar summary{
+    cursor:pointer; color:var(--fg-bright); font-weight:700; letter-spacing:1px;
+    font-size:12px; list-style:none; outline:none;
+  }
+  .sidebar summary::-webkit-details-marker{ display:none; }
+  .sidebar summary::before{ content:"▾ "; color:var(--fg-dim); }
+  .sidebar[open] > summary::before{ content:"▾ "; }
+  .sidebar:not([open]) > summary::before{ content:"▸ "; }
+  .sidebar h4{
+    margin:14px 0 6px; font-size:10px; letter-spacing:2px; color:var(--fg-dim);
+    border-top:1px dashed var(--border); padding-top:10px;
+  }
+  .sidebar h4:first-of-type{ border-top:none; padding-top:0; }
+  .sidebar .sidebar-value{ color:var(--fg-bright); font-weight:700; }
+  .sidebar ul{ list-style:none; margin:0; padding:0; }
+  .sidebar li{
+    padding:3px 6px; margin:2px 0; border:1px solid var(--border);
+    background:rgba(61,255,122,0.05); color:var(--fg); letter-spacing:1px;
+  }
+  @media (max-width:820px){
+    .gamewrap{ flex-direction:column; padding:10px 10px 0; }
+    .sidebar{ width:100%; order:-1; }
+  }
+
+  /* ---------- Puzzle widgets rendered inline in the terminal ---------- */
+  .puzzle-widget{ margin:10px 0 14px; border:1px dashed var(--border); padding:10px; }
+  .puzzle-widget .pz-controls{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  .puzzle-widget button{
+    background:rgba(61,255,122,0.12); color:var(--fg-bright); border:1px solid var(--border);
+    font-family:var(--mono); padding:6px 10px; cursor:pointer; font-size:12px;
+  }
+  .puzzle-widget button:hover{ background:rgba(61,255,122,0.22); }
+  .pz-grid{ display:grid; gap:3px; margin-bottom:8px; }
+  .pz-grid button{
+    aspect-ratio:1; border:1px solid var(--border); background:var(--panel);
+    color:var(--fg); font-family:var(--mono); font-size:11px; font-weight:700;
+    cursor:pointer; padding:0; min-width:26px; min-height:26px;
+  }
+</style>
+</head>
+<body>
+<div class="crt-overlay" aria-hidden="true"></div>
+
+<div class="topbar">
+  <div class="brand">AUTOSAFE INDUSTRIES <small>CYBERSECURITY DIVISION // OPERATION: CRASH TEST</small></div>
+  <div class="statusgroup" id="statusGroup">
+    <span class="pill" id="cmdPill"><b id="cmdRemaining">30</b> / <span id="cmdTotal">30</span> COMMANDS REMAINING</span>
+    <span class="pill" id="stagePill">STATUS: STANDBY</span>
+    <button class="iconbtn" id="resetBtn" type="button">RESET MISSION</button>
+  </div>
+</div>
+
+<main>
+  <!-- ============================================================
+       BRIEFING SCREEN
+  ============================================================ -->
+  <section class="briefing" id="briefingScreen">
+    <div class="tag">CLASSIFICATION: TOP SECRET</div>
+    <h1>OPERATION: CRASH TEST</h1>
+    <div class="brief-box">
+      <p>A rival automobile manufacturer is developing a new passenger
+      safety technology. Your engineering division needs intelligence.</p>
+
+      <h2>MISSION OBJECTIVES</h2>
+      <ol>
+        <li>Enter the rival's fictional network.</li>
+        <li>Locate their vehicle safety research.</li>
+        <li>Identify the project under development.</li>
+        <li>Extract the classified engineering file.</li>
+      </ol>
+
+      <h2 class="classified">WARNING</h2>
+      <p>You have a limited number of commands before detection.<br>
+      <b>COMMAND LIMIT: <span id="briefLimit">30</span></b><br>
+      You may discover tools that make the mission easier.<br>
+      You will encounter varied security defences and puzzles along the way -
+      the commands available to you will expand as you make progress, shown
+      in a panel beside the terminal.</p>
+
+      <p style="color:var(--fg-dim); font-size:12px;">This is a fictional simulation built for classroom learning.
+      No real systems, networks, or hacking techniques are involved.</p>
+    </div>
+
+    <button class="begin-btn" id="beginBtn" type="button">[ BEGIN MISSION ]</button>
+  </section>
+
+  <!-- ============================================================
+       GAME SCREEN: terminal + persistent status/command sidebar
+  ============================================================ -->
+  <div class="gamewrap" id="gameWrap" style="display:none;">
+    <section class="termwrap" id="terminalScreen">
+      <div class="terminal" id="terminal" role="log" aria-live="polite"></div>
+      <div class="inputrow">
+        <span class="prompt">&gt;</span>
+        <input type="text" id="cmdInput" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="type a command... e.g. 'scan the network'" aria-label="Terminal command input">
+        <button id="sendBtn" type="button">ENTER</button>
+      </div>
+    </section>
+
+    <details class="sidebar" id="sidebar" open>
+      <summary>MISSION STATUS</summary>
+      <h4>STAGE</h4>
+      <div class="sidebar-value" id="stageLabel">RECONNAISSANCE</div>
+      <h4>LOCATION</h4>
+      <div class="sidebar-value" id="locLabel" style="font-weight:400; font-size:11px;">/PUBLIC NETWORK/</div>
+      <h4>AVAILABLE COMMANDS</h4>
+      <ul id="commandList"></ul>
+    </details>
+  </div>
+</main>
+
+<!-- Reset confirmation modal -->
+<div class="modal-backdrop" id="resetModal">
+  <div class="modal">
+    <h3>RESET MISSION?</h3>
+    <p>This will end the current mission, clear the terminal, select a new rival
+    safety feature at random, and reset the command counter to zero. This cannot be undone.</p>
+    <div class="modal-actions">
+      <button id="cancelReset" type="button">CANCEL</button>
+      <button id="confirmReset" class="danger" type="button">RESET</button>
+    </div>
+  </div>
+</div>
+
+<!-- Discreet teacher test panel (Ctrl+Shift+T) -->
+<div class="testpanel" id="testPanel">
+  <h4>TEST MODE</h4>
+  <button id="tpReveal" type="button">Reveal rival feature</button>
+  <button id="tpInstallVirus" type="button">Install helper virus</button>
+  <button id="tpSkipPuzzle" type="button">Skip current puzzle</button>
+  <button id="tpNewPuzzle" type="button">Generate new puzzle</button>
+  <button id="tpJumpExtract" type="button">Jump to extraction</button>
+  <select id="tpSetFeature"></select>
+  <button id="tpApplyFeature" type="button">Force this rival feature</button>
+  <button id="tpReset" type="button">Reset mission</button>
+  <button id="tpClose" type="button">Close</button>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =====================================================================
+   TEACHER CONFIGURATION
+   -----------------------------------------------------------------
+   A teacher with no coding experience can change the values below.
+   Students choose their own safety feature outside this game, so
+   there is no "assigned feature" setting here - only the RIVAL
+   feature (revealed at the end of the mission) is randomised.
+   ===================================================================== */
+
+// Maximum number of student commands before automatic emergency extraction.
+const MAX_COMMANDS = 30;
+
+// Set to true to show the hidden teacher TEST MODE panel automatically.
+// Students should never see this turned on. When false, teachers can still
+// reach the panel with the keyboard shortcut Ctrl+Shift+T.
+let TEST_MODE = false;
+
+// How difficult puzzles should be: "EASY", "MEDIUM", or "HARD".
+// This also controls how many wrong attempts are allowed before an
+// automatic hint appears (EASY = 1, MEDIUM = 2, HARD = 3).
+// EASY is still appropriate for age 15 - it is simply less demanding
+// than MEDIUM/HARD, which is why HARD is the default.
+let PUZZLE_DIFFICULTY = "HARD";
+
+// Turn individual puzzle types on/off. If you disable a type, it simply
+// won't be picked for a defence - the game always falls back to an
+// enabled type, so leave at least a couple of these on.
+let ENABLE_PATH_PUZZLES = true;
+let ENABLE_SEQUENCE_PUZZLES = true;
+let ENABLE_LOGIC_PUZZLES = true;
+let ENABLE_CIPHER_PUZZLES = true;
+let ENABLE_DEDUCTION_PUZZLES = true;
+let ENABLE_VISUAL_PUZZLES = true;
+let ENABLE_PHYSICS_PUZZLES = true;
+let ENABLE_WEIGHTED_PATH_PUZZLES = true;
+let ENABLE_LOGIC_GRID_PUZZLES = true;
+
+// The full list of possible RIVAL safety features. One is chosen at random
+// for each mission (repeats are allowed, since a class usually has more
+// students than features) and is NOT shown to students until extraction.
+// Each entry needs: name, codename, purpose, mechanism, testData, physicsClue.
+const SAFETY_FEATURES = [
+  {
+    name: "Seat belts",
+    codename: "SENTINEL",
+    purpose: "Restrain the occupant so they move together with the decelerating vehicle, rather than continuing forward at the pre-crash speed.",
+    mechanism: "By coupling the occupant to the seat structure early in a collision, the belt allows the occupant's momentum to change over roughly the same time as the vehicle's, instead of over the much shorter time of a secondary impact with the dashboard or windscreen.",
+    testData: [
+      "Vehicle mass: 1500 kg | Test dummy mass: 75 kg",
+      "Initial speed: 14 m/s, frontal barrier impact",
+      "Unrestrained dummy - time to stop after secondary impact: approx. 0.03 s",
+      "Restrained dummy - time to stop, coupled to vehicle: approx. 0.11 s"
+    ],
+    physicsClue: "Compare the change in momentum of the dummy in both cases, then consider how stopping over a longer time changes the average force needed to produce that change in momentum."
+  },
+  {
+    name: "Airbags",
+    codename: "AEGIS",
+    purpose: "Cushion the head and chest during a collision so the occupant does not strike hard interior surfaces directly.",
+    mechanism: "The airbag inflates and then deflates in a controlled way, extending the time over which the occupant's momentum changes during the impact with the bag, compared to an unpadded impact.",
+    testData: [
+      "Vehicle mass: 1450 kg | Test dummy mass: 70 kg",
+      "Initial speed: 13.5 m/s, frontal barrier impact",
+      "Head impact without airbag - contact time: approx. 0.015 s",
+      "Head impact with airbag - contact time: approx. 0.07 s"
+    ],
+    physicsClue: "Airbags do not reduce the dummy's momentum before impact - they change how quickly that momentum is brought to zero. Think about what that means for the average force on the head."
+  },
+  {
+    name: "Crumple zones",
+    codename: "ORION",
+    purpose: "Increase the time over which the vehicle's structure decelerates during a collision.",
+    mechanism: "The vehicle structure is designed to deform in a controlled way during a collision. This deformation increases the time over which the vehicle changes momentum, and converts some kinetic energy into deformation of the structure.",
+    testData: [
+      "Vehicle mass: 1500 kg | Initial speed: 15 m/s",
+      "Vehicle without modified structure - approx. collision time: 0.08 s",
+      "Vehicle with modified structure - approx. collision time: 0.24 s"
+    ],
+    physicsClue: "Use the same change in momentum for both vehicles, but a different collision time, to compare the average force each structure experiences."
+  },
+  {
+    name: "Head restraints",
+    codename: "VANGUARD",
+    purpose: "Limit how far the head moves backward relative to the torso during a rapid rear-end acceleration.",
+    mechanism: "During a rear impact, the torso is accelerated forward by the seat before the head is, unless the head restraint reduces this relative motion. Limiting this relative displacement reduces the strain placed on the neck.",
+    testData: [
+      "Rear impact test | Closing speed: 4 m/s",
+      "No head restraint - measured head-to-torso relative displacement: 11 cm",
+      "Correctly positioned head restraint - relative displacement: 3 cm"
+    ],
+    physicsClue: "Think in terms of the torso's acceleration during the impact, and what happens to a part of the body (the head) that is not immediately accelerated along with it."
+  },
+  {
+    name: "Seat-belt pretensioners",
+    codename: "BASTION",
+    purpose: "Remove slack from the seat belt in the first instants of a collision, coupling the occupant to the vehicle sooner.",
+    mechanism: "A small pyrotechnic or spring-loaded mechanism retracts the belt the instant a collision is detected, so the occupant begins decelerating with the vehicle earlier, giving the whole restraint system more of the available stopping distance and time to work with.",
+    testData: [
+      "Vehicle mass: 1480 kg | Initial speed: 14 m/s",
+      "Standard belt - forward occupant excursion before full restraint: 12 cm",
+      "Pretensioned belt - forward occupant excursion before full restraint: 3 cm"
+    ],
+    physicsClue: "Consider how much of the vehicle's available collision time is 'wasted' if the occupant is still moving at close to the original speed for part of it."
+  },
+  {
+    name: "Seat-belt load limiters",
+    codename: "MERIDIAN",
+    purpose: "Allow a small, controlled amount of belt webbing to pay out under very high tension, rather than holding the occupant perfectly rigid.",
+    mechanism: "By permitting a short, controlled extension of the belt during a severe collision, the occupant's chest decelerates over a slightly longer time and distance, which can reduce the peak force and chest compression compared with a completely rigid restraint.",
+    testData: [
+      "Vehicle mass: 1500 kg | Initial speed: 15 m/s",
+      "Rigid belt (no limiter) - peak chest deceleration: approx. 60 g",
+      "Belt with load limiter - peak chest deceleration: approx. 42 g"
+    ],
+    physicsClue: "A slightly longer stopping time or distance, for the same change in momentum, changes the average force involved. Consider what 'g' is measuring here."
+  },
+  {
+    name: "Side-impact protection beams",
+    codename: "HALCYON",
+    purpose: "Resist intrusion into the passenger compartment during a collision from the side, where there is little crumple zone available.",
+    mechanism: "Reinforced beams inside the doors and pillars spread and resist the impact force, limiting how quickly and how far the door structure moves inward toward the occupant during a side collision.",
+    testData: [
+      "Side impact test | Striking vehicle mass: 1500 kg | Speed: 10 m/s",
+      "Standard door structure - intrusion into cabin: 28 cm in 0.09 s",
+      "Reinforced beam structure - intrusion into cabin: 11 cm in 0.16 s"
+    ],
+    physicsClue: "In a side impact there is very little distance between the occupant and the striking object. Consider why increasing the collision time is especially important when the crumple distance is small."
+  },
+  {
+    name: "Collapsible steering columns",
+    codename: "GUARDIAN",
+    purpose: "Allow the steering column to shorten and absorb energy on frontal impact, rather than remaining rigid and intruding toward the driver.",
+    mechanism: "The column is engineered with a controlled collapsing or telescoping mechanism, increasing the time and distance over which the driver's chest decelerates if it makes contact, and preventing the column itself from being driven backward into the cabin.",
+    testData: [
+      "Frontal impact test | Vehicle mass: 1550 kg | Speed: 14 m/s",
+      "Rigid steering column - chest deceleration time: approx. 0.02 s",
+      "Collapsible steering column - chest deceleration time: approx. 0.06 s"
+    ],
+    physicsClue: "As with other structural features, look at how the same change in momentum can be spread over a longer time to change the resulting force."
+  },
+  {
+    name: "Padded / energy-absorbing dashboards",
+    codename: "PHOENIX",
+    purpose: "Reduce the force on an occupant who makes secondary contact with the dashboard during a collision.",
+    mechanism: "A layer of deformable foam or padding behind the dashboard's outer surface compresses on impact, increasing the time over which contact decelerates the occupant compared with a rigid, unpadded surface.",
+    testData: [
+      "Secondary impact test | Occupant mass: 70 kg | Impact speed: 9 m/s",
+      "Rigid dashboard surface - contact time: approx. 0.01 s",
+      "Padded, energy-absorbing dashboard - contact time: approx. 0.045 s"
+    ],
+    physicsClue: "This is a smaller-scale version of the same idea used in crumple zones - think about why padding a hard surface can be protective even without changing the impact speed."
+  },
+  {
+    name: "Child restraint systems",
+    codename: "ATLAS",
+    purpose: "Restrain a child occupant in a way that suits their smaller body proportions, distributing crash forces across stronger parts of the skeleton.",
+    mechanism: "Correctly fitted child seats couple the child to the vehicle earlier and more securely than an adult belt sized for a child, and in rear-facing seats, spread the deceleration force across the back and shoulders rather than concentrating it on the neck.",
+    testData: [
+      "Rear-facing child seat test | Dummy mass: 12 kg | Speed: 13 m/s",
+      "Adult belt only (unsuitable fit) - estimated neck load: high, poorly distributed",
+      "Correctly fitted rear-facing restraint - measured neck load: substantially reduced"
+    ],
+    physicsClue: "Consider both the change in momentum of the child's body and, separately, of their head - and why the direction the seat faces changes which body part must absorb this force."
+  },
+  {
+    name: "Anti-whiplash seat design",
+    codename: "ECLIPSE",
+    purpose: "Reduce the relative motion between a passenger's head and torso specifically during rear-end collisions.",
+    mechanism: "The seat back and head restraint are shaped and hinged to move together with the occupant's body during a rear impact, minimising the delay between the torso being accelerated forward and the head following it.",
+    testData: [
+      "Rear impact test | Closing speed: 4.5 m/s",
+      "Standard seat - peak head-to-torso relative acceleration: high, delayed",
+      "Anti-whiplash geometry seat - peak head-to-torso relative acceleration: reduced, less delayed"
+    ],
+    physicsClue: "This feature works on the same relative-motion idea as head restraints, but by changing how the whole seat responds, not just a single fixed restraint."
+  },
+  {
+    name: "Energy-absorbing bumpers",
+    codename: "NEBULA",
+    purpose: "Absorb the energy of low-speed impacts before it reaches the main vehicle structure or occupants.",
+    mechanism: "A deformable bumper structure compresses over a short distance during minor collisions, increasing the collision time and absorbing kinetic energy, reducing the force transmitted further into the vehicle.",
+    testData: [
+      "Low-speed impact test | Vehicle mass: 1400 kg | Speed: 4 m/s",
+      "Rigid bumper - collision time: approx. 0.05 s",
+      "Energy-absorbing bumper - collision time: approx. 0.20 s"
+    ],
+    physicsClue: "Even at low speed, the same relationship between force, change in momentum and time applies. Consider why this matters most for minor, everyday collisions."
+  }
+];
+
+/* =====================================================================
+   END OF TEACHER CONFIGURATION
+   ===================================================================== */
+
+
+/* =====================================================================
+   FICTIONAL NETWORK MAP
+   Everything below is entirely fictional flavour content.
+   Optional "files" arrays add extra scan/open flavour content to a
+   location without affecting mission progress - purely for variety.
+   ===================================================================== */
+const NODES = {
+  public_network: {
+    name: "PUBLIC NETWORK",
+    parent: null,
+    children: ["company_info","departments","employee_directory","internal_network"],
+    keywords: ["public network","public","home","start","outer network","front door"],
+    minStage: 0,
+    desc: "You are connected to the rival company's public-facing network.\nLow security. A good place to start reconnaissance.",
+    files: [
+      { id:"welcome_banner", label:"welcome_banner.txt", keywords:["welcome banner","banner","welcome message"],
+        content:"WELCOME BANNER:\n\"Unauthorized access is prohibited and monitored.\"\nThe warning looks automated and out of date." }
+    ]
+  },
+  company_info: {
+    name: "COMPANY INFORMATION",
+    parent: "public_network",
+    children: [],
+    keywords: ["company info","company information","about","about us","press releases"],
+    minStage: 0,
+    desc: "PRESS ARCHIVE:\n\"We build the future of automotive safety.\"\nNothing of engineering value here.",
+    files: [
+      { id:"founders_letter", label:"founders_letter.txt", keywords:["founders letter","founder","letter"],
+        content:"FOUNDER'S LETTER:\n\"We build the future of automotive safety.\"\n- Signed, the founding team, several years ago." }
+    ]
+  },
+  departments: {
+    name: "DEPARTMENT LIST",
+    parent: "public_network",
+    children: [],
+    keywords: ["departments","department list","org chart","organisation","organization"],
+    minStage: 0,
+    desc: "DEPARTMENT INDEX:\nENGINEERING - RESEARCH - TESTING - MANUFACTURING - SECURITY\nThese likely sit on the INTERNAL NETWORK.",
+    files: [
+      { id:"org_chart", label:"org_chart.pdf", keywords:["org chart","organisation chart","organization chart"],
+        content:"ORG CHART:\nCEO -> VP Engineering -> Division Leads -> Teams.\nPurely administrative. Nothing unusual." }
+    ]
+  },
+  employee_directory: {
+    name: "EMPLOYEE DIRECTORY",
+    parent: "public_network",
+    children: [],
+    keywords: ["employee directory","employees","staff","staff directory","personnel"],
+    minStage: 0,
+    desc: "STAFF DIRECTORY (fictional):\nHundreds of entries. No individual is a valid target.",
+    files: [
+      { id:"directory_export", label:"directory_export.csv", keywords:["directory export","export","csv"],
+        content:"DIRECTORY EXPORT:\n1,204 entries. All identities redacted for this exercise.\nNo individual is a valid mission target." }
+    ]
+  },
+  internal_network: {
+    name: "INTERNAL NETWORK",
+    parent: "public_network",
+    children: ["engineering","research","testing","manufacturing","security"],
+    keywords: ["internal network","internal","infiltrate","breach","deeper network","go deeper","hack in","get inside","main network","company network","break in"],
+    minStage: 1,
+    desc: "ACCESS GRANTED.\nYou have infiltrated the INTERNAL NETWORK.\nSeveral divisions are now visible.",
+    files: [
+      { id:"network_map", label:"network_map.log", keywords:["network map","map","topology"],
+        content:"NETWORK MAP:\nFive divisions branch from this point:\nENGINEERING, RESEARCH, TESTING, MANUFACTURING, SECURITY." }
+    ]
+  },
+  engineering: {
+    name: "ENGINEERING DIVISION",
+    parent: "internal_network",
+    children: ["vehicle_dynamics","materials","crash_testing","occupant_protection"],
+    keywords: ["engineering","engineering department","engineering division","eng dept"],
+    minStage: 1,
+    desc: "ENGINEERING DIVISION.\nSub-areas: VEHICLE DYNAMICS, MATERIALS, CRASH TESTING, OCCUPANT PROTECTION.",
+    files: [
+      { id:"eng_readme", label:"readme.txt", keywords:["readme","read me"],
+        content:"README:\n\"All safety-critical development is compartmentalised.\nSee sub-folders for details.\" - Engineering Lead" }
+    ]
+  },
+  research: {
+    name: "RESEARCH DIVISION",
+    parent: "internal_network",
+    children: ["impact_testing","passenger_safety","biomechanics","materials_research"],
+    keywords: ["research","research department","research division"],
+    minStage: 1,
+    desc: "RESEARCH DIVISION.\nSub-areas: IMPACT TESTING, PASSENGER SAFETY, BIOMECHANICS, MATERIALS RESEARCH.",
+    files: [
+      { id:"research_index", label:"research_index.log", keywords:["research index","index"],
+        content:"RESEARCH INDEX:\nFour active research streams listed below.\nNone are marked classified." }
+    ]
+  },
+  testing: {
+    name: "TESTING DEPARTMENT",
+    parent: "internal_network",
+    children: [],
+    keywords: ["testing department","quality testing","qa department"],
+    minStage: 1,
+    desc: "TESTING DEPARTMENT.\nRoutine quality-control logs. Nothing safety-critical filed here.",
+    files: [
+      { id:"qc_checklist", label:"qc_checklist.doc", keywords:["qc checklist","quality checklist","checklist"],
+        content:"QC CHECKLIST:\nRoutine part-tolerance checks.\nNothing safety-system specific." }
+    ]
+  },
+  manufacturing: {
+    name: "MANUFACTURING",
+    parent: "internal_network",
+    children: [],
+    keywords: ["manufacturing","production","factory","assembly line"],
+    minStage: 1,
+    desc: "MANUFACTURING SYSTEMS.\nProduction schedules and part inventories. Nothing safety-critical filed here.",
+    files: [
+      { id:"assembly_schedule", label:"assembly_schedule.xls", keywords:["assembly schedule","schedule","production schedule"],
+        content:"ASSEMBLY SCHEDULE:\nProduction line timings for three vehicle models.\nNo engineering data here." }
+    ]
+  },
+  security: {
+    name: "SECURITY SYSTEMS",
+    parent: "internal_network",
+    children: ["authentication","access_logs","diagnostic_tools"],
+    keywords: ["security","security department","security systems"],
+    minStage: 1,
+    desc: "SECURITY SYSTEMS.\nSub-areas: AUTHENTICATION, ACCESS LOGS, DIAGNOSTIC TOOLS.",
+    files: [
+      { id:"sec_overview", label:"security_overview.log", keywords:["security overview","overview"],
+        content:"SECURITY OVERVIEW:\nThree subsystems: AUTHENTICATION, ACCESS LOGS, DIAGNOSTIC TOOLS." }
+    ]
+  },
+  vehicle_dynamics: {
+    name: "VEHICLE DYNAMICS",
+    parent: "engineering",
+    children: [],
+    keywords: ["vehicle dynamics","dynamics","handling"],
+    minStage: 1,
+    desc: "VEHICLE DYNAMICS ARCHIVE.\nSuspension tuning and handling data. Not what you're looking for.",
+    files: [
+      { id:"suspension_notes", label:"suspension_notes.log", keywords:["suspension notes","suspension"],
+        content:"SUSPENSION NOTES:\nDamping coefficients for the new sedan platform.\nInteresting, but unrelated to the mission." }
+    ]
+  },
+  materials: {
+    name: "MATERIALS",
+    parent: "engineering",
+    children: [],
+    keywords: ["materials","material science","alloys"],
+    minStage: 1,
+    desc: "MATERIALS ARCHIVE.\nAlloy and composite specifications. Not what you're looking for.",
+    files: [
+      { id:"alloy_specs", label:"alloy_specs.dat", keywords:["alloy specs","alloy","specs"],
+        content:"ALLOY SPECS:\nComposition data for chassis alloys.\nNo safety-system information." }
+    ]
+  },
+  crash_testing: {
+    name: "CRASH TESTING",
+    parent: "engineering",
+    children: [],
+    keywords: ["crash testing","crash test","crash","collision testing","crash dynamics","cars crashing"],
+    minStage: 2,
+    desc: "CRASH TESTING ARCHIVE.\nHundreds of frontal and side-impact test logs.\nOne folder is labelled OCCUPANT PROTECTION - CROSS-REFERENCE.\nTry: > open occupant protection",
+    files: [
+      { id:"crash_test_log", label:"test_log_master.csv", keywords:["test log","crash test log","master log","test logs"],
+        content:"TEST LOG (MASTER):\nFrontal, side and rear impact summaries.\nCross-referenced with OCCUPANT PROTECTION." }
+    ]
+  },
+  occupant_protection: {
+    name: "OCCUPANT PROTECTION",
+    parent: "engineering",
+    children: ["classified_project"],
+    keywords: ["occupant protection","passenger protection","passenger safety research","occupant safety"],
+    minStage: 3,
+    desc: "OCCUPANT PROTECTION ARCHIVE.\nDetailed injury-reduction research.\nA single file is sealed under restricted access:\nCLASSIFIED PROJECT [ENCRYPTED]\nTry: > open classified project",
+    files: [
+      { id:"injury_summary", label:"injury_risk_summary.pdf", keywords:["injury risk","injury summary","risk summary"],
+        content:"INJURY RISK SUMMARY:\nGeneral occupant injury statistics.\nOne file in this folder is sealed under restricted access." }
+    ]
+  },
+  classified_project: {
+    name: "CLASSIFIED PROJECT",
+    parent: "occupant_protection",
+    children: [],
+    isTarget: true,
+    keywords: ["classified project","classified","the project","project file","safety project","classified file"],
+    minStage: 4,
+    desc: "RESTRICTED FILE LOCATED.\nENCRYPTION STATUS: WEAK - CONSUMER GRADE\nThis appears to be the rival's active safety development file.\nType EXTRACT to retrieve it."
+  },
+  impact_testing: {
+    name: "IMPACT TESTING",
+    parent: "research",
+    children: [],
+    keywords: ["impact testing","impact test"],
+    minStage: 1,
+    desc: "IMPACT TESTING LOGS.\nRaw sensor data from research prototypes. Interesting, but not conclusive.",
+    files: [
+      { id:"prototype_log", label:"prototype_log_07.dat", keywords:["prototype log","log 07","prototype data"],
+        content:"PROTOTYPE LOG 07:\nRaw sensor data from an early-stage prototype.\nNot conclusive on its own." }
+    ]
+  },
+  passenger_safety: {
+    name: "PASSENGER SAFETY RESEARCH",
+    parent: "research",
+    children: [],
+    keywords: ["passenger safety","passenger safety research"],
+    minStage: 1,
+    desc: "PASSENGER SAFETY RESEARCH.\nGeneral literature review. References an active project in ENGINEERING.\nTry: > open engineering",
+    files: [
+      { id:"lit_review", label:"literature_review.doc", keywords:["literature review","lit review"],
+        content:"LITERATURE REVIEW:\nSummarises published passenger-safety research.\nReferences an active project inside ENGINEERING." }
+    ]
+  },
+  biomechanics: {
+    name: "BIOMECHANICS",
+    parent: "research",
+    children: [],
+    keywords: ["biomechanics","human body impact"],
+    minStage: 1,
+    desc: "BIOMECHANICS ARCHIVE.\nHuman injury tolerance data. Background research only.",
+    files: [
+      { id:"tolerance_charts", label:"injury_tolerance_charts.pdf", keywords:["tolerance charts","injury tolerance"],
+        content:"INJURY TOLERANCE CHARTS:\nHuman-body force and acceleration tolerance data.\nBackground research only." }
+    ]
+  },
+  materials_research: {
+    name: "MATERIALS RESEARCH",
+    parent: "research",
+    children: [],
+    keywords: ["materials research"],
+    minStage: 1,
+    desc: "MATERIALS RESEARCH ARCHIVE.\nExperimental composites. Not safety-system specific.",
+    files: [
+      { id:"composite_trial", label:"composite_trial_9.dat", keywords:["composite trial","trial 9"],
+        content:"COMPOSITE TRIAL 9:\nExperimental panel material results.\nNot safety-system specific." }
+    ]
+  },
+  authentication: {
+    name: "AUTHENTICATION",
+    parent: "security",
+    children: [],
+    keywords: ["authentication","login system","access control"],
+    minStage: 1,
+    desc: "AUTHENTICATION SYSTEM.\nFictional login gateway. Nothing to extract here.",
+    files: [
+      { id:"login_policy", label:"login_policy.txt", keywords:["login policy","password policy"],
+        content:"LOGIN POLICY:\n\"Please change your password.\"\nLast changed: 412 days ago (fictional record)." }
+    ]
+  },
+  access_logs: {
+    name: "ACCESS LOGS",
+    parent: "security",
+    children: [],
+    keywords: ["access logs","logs","log files"],
+    minStage: 1,
+    desc: "ACCESS LOGS.\nRoutine fictional traffic. Nothing unusual, except one flagged file transfer\nfrom a diagnostic utility.",
+    files: [
+      { id:"traffic_summary", label:"traffic_summary.log", keywords:["traffic summary","traffic log"],
+        content:"TRAFFIC SUMMARY:\nRoutine fictional network traffic.\nOne flagged transfer traces back to DIAGNOSTIC TOOLS." }
+    ]
+  },
+  diagnostic_tools: {
+    name: "DIAGNOSTIC TOOLS",
+    parent: "security",
+    children: [],
+    keywords: ["diagnostic tools","diagnostics","utilities"],
+    minStage: 1,
+    desc: "DIAGNOSTIC TOOLS.\nAn unfamiliar file sits among the standard utilities.\nFilename: helper_virus.exe\nSTATUS: UNKNOWN",
+    files: [
+      { id:"network_health", label:"network_health.rpt", keywords:["network health","health report"],
+        content:"NETWORK HEALTH REPORT:\nAll systems nominal.\n(One unfamiliar file also sits in this folder.)" }
+    ]
+  }
+};
+
+/* =====================================================================
+   SECURITY DEFENCES: PUZZLE LIBRARY (v4 - harder, session non-repeating)
+   Every node in OBSTACLE_NODES is guarded by a puzzle drawn from a
+   shared session-wide pool. The same puzzle TYPE will not repeat until
+   every enabled type has been used at least once; the same puzzle
+   INSTANCE within a type will not repeat until that type's own variants
+   are exhausted. All puzzles below are hand-designed and were checked
+   (including brute-force uniqueness/solvability checks during design)
+   rather than randomly generated, per the "curated library" approach.
+   ===================================================================== */
+const OBSTACLE_NODES = {
+  internal_network: { label: "ADAPTIVE FIREWALL" },
+  crash_testing:     { label: "CRASH TEST DATABASE LOCK" },
+  occupant_protection: { label: "MONITORING DAEMON" },
+  classified_project: { label: "INTRUSION COUNTERMEASURE" }
+};
+
+function rand(n){ return Math.floor(Math.random() * n); }
+function pickOne(arr){ return arr[rand(arr.length)]; }
+function shuffleArr(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = rand(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function normalizeAnswer(s){
+  return String(s).toLowerCase().replace(/[\s\-_]/g, "");
+}
+function difficultyRank(){
+  const d = String(PUZZLE_DIFFICULTY || "HARD").toUpperCase();
+  if (d === "EASY") return 1;
+  if (d === "MEDIUM") return 2;
+  return 3; // HARD, or unrecognised value: default to hardest
+}
+
+/* Pick a pool item, avoiding this session's already-used instance ids
+   for that type where possible. Prefers items matching the current
+   difficulty level, but always falls back rather than returning nothing. */
+function pickPoolItem(pool, typeKey){
+  const rank = difficultyRank();
+  let candidates = pool.filter(p => !state.usedPuzzleInstances.includes(typeKey + "_" + p.id));
+  if (candidates.length === 0){
+    // exhausted this type's variants this session - allow repeats of this type again
+    state.usedPuzzleInstances = state.usedPuzzleInstances.filter(id => !id.startsWith(typeKey + "_"));
+    candidates = pool.slice();
+  }
+  const byLevel = candidates.filter(p => (p.level || 2) >= rank);
+  const finalPool = byLevel.length ? byLevel : candidates;
+  const chosen = pickOne(finalPool);
+  state.usedPuzzleInstances.push(typeKey + "_" + chosen.id);
+  return chosen;
+}
+
+/* ---- SEQUENCE / PATTERN ("ACCESS CODE GENERATOR") ----
+   Two-rule / interleaved sequences rather than a single obvious rule. */
+function makeSequencePuzzle(){
+  const pool = [
+    { id:"1", level:1,
+      seq:["1","3","2","6","3","9"],
+      answer:"4",
+      hint:"Look only at the 1st, 3rd and 5th numbers - they follow their own simple rule.",
+      hints:["There are really two sequences tangled together here - odd positions and even positions.",
+             "The odd-position numbers are 1, 2, 3 ... what comes next in that pattern alone?"] },
+    { id:"2", level:2,
+      seq:["3","8","6","11","9","14"],
+      answer:"12",
+      hint:"Split the numbers into two groups: 1st/3rd/5th, and 2nd/4th/6th.",
+      hints:["The 1st, 3rd and 5th numbers (3, 6, 9) increase by the same amount each time.",
+             "3, 6, 9 increases by 3 each time - the next term in that group follows the same rule."] },
+    { id:"3", level:3,
+      seq:["2","3","5","8","12","17"],
+      answer:"23",
+      hint:"Look at the differences between consecutive numbers, not the numbers themselves.",
+      hints:["The differences are 1, 2, 3, 4, 5 - the gap itself is growing by 1 each time.",
+             "If the differences go 1,2,3,4,5, the next difference is 6. Add that to the last number."] }
+  ];
+  const p = pickPoolItem(pool, "sequence");
+  return {
+    type: "sequence",
+    title: "ACCESS CODE GENERATOR",
+    intro: "ENCRYPTED SEQUENCE LOCK DETECTED.",
+    body: p.seq.join("   ") + "   ?",
+    accepted: [normalizeAnswer(p.answer)],
+    hint: p.hint,
+    hints: p.hints
+  };
+}
+
+/* ---- FILE DEDUCTION ("PROJECT DIRECTORY INDEX") ----
+   Small logic-grid style puzzle: days are fixed and shown; the student
+   must work out which division goes with which day using the clues,
+   then identify the file containing the occupant-protection report. */
+function makeDeductionPuzzle(){
+  const pool = [
+    { id:"1", level:1,
+      files: [
+        { id:"A", day:"Monday" }, { id:"B", day:"Tuesday" },
+        { id:"C", day:"Wednesday" }, { id:"D", day:"Thursday" }
+      ],
+      clues: [
+        "The Materials report was created before the Vehicle Dynamics report.",
+        "The Crash-Testing report was created immediately after the Vehicle Dynamics report.",
+        "The Occupant Protection report was not created on Monday.",
+        "The Vehicle Dynamics report was created on an even-numbered day of the week (Mon=1, Tue=2, ...)."
+      ],
+      question: "Which file contains the OCCUPANT PROTECTION report?",
+      answer: "D",
+      hint: "Work out which day Vehicle Dynamics falls on first - only one even-numbered day works with the other clues." },
+    { id:"2", level:3,
+      files: [
+        { id:"A", day:"Monday" }, { id:"B", day:"Tuesday" }, { id:"C", day:"Wednesday" },
+        { id:"D", day:"Thursday" }, { id:"E", day:"Friday" }, { id:"F", day:"Saturday" }
+      ],
+      clues: [
+        "The Materials report was created before the Vehicle Dynamics report.",
+        "The Crash-Testing report was created immediately after the Vehicle Dynamics report.",
+        "The Manufacturing report was not created on Monday or Friday.",
+        "The Biomechanics report was created immediately before the Occupant Protection report.",
+        "The Occupant Protection report was created later in the week than the Manufacturing report.",
+        "The Vehicle Dynamics report was created before the Manufacturing report."
+      ],
+      question: "Which file contains the OCCUPANT PROTECTION report?",
+      answer: "F",
+      hint: "Start with the two 'immediately after / immediately before' clues - they lock two pairs of days together." }
+  ];
+  const p = pickPoolItem(pool, "deduction");
+  const body = p.files.map(f=>"FILE " + f.id + ": created " + f.day + ".").join("\n")
+    + "\n\nCLUES:\n" + p.clues.map((c,i)=>(i+1) + ". " + c).join("\n")
+    + "\n\n" + p.question;
+  return {
+    type: "deduction",
+    title: "PROJECT DIRECTORY INDEX",
+    intro: "PERSONNEL DATABASE INDEX CORRUPTED.",
+    body,
+    accepted: [normalizeAnswer(p.answer)],
+    hint: p.hint,
+    hints: [p.hint, "Fill in the days you're sure of first, then use the remaining clues to eliminate options for the rest."]
+  };
+}
+
+/* ---- (Ordering puzzles removed in v5) ---- */
+
+/* ---- CIPHER ("ENCRYPTED ENGINEERING FILE DETECTED") ----
+   A genuine substitution-cipher deduction puzzle. No legend is given -
+   the mapping must be built up from clue words, using repeated-letter
+   recognition and elimination rather than direct lookup. */
+function makeCipherPuzzle(){
+  const pool = [
+    { id:"1", level:2,
+      clues: [
+        { enc:"\u25B3\u2715\u2715", meaning:"ADD" },
+        { enc:"\u25CB\u25B3\u25C7\u25A1", meaning:"CASE" },
+        { enc:"\u25CB\u2606\u2715\u25A1", meaning:"CODE" }
+      ],
+      messageEnc: "\u25B3\u25CB\u25CB\u25A1\u25C7\u25C7  \u25CB\u2606\u2715\u25A1",
+      messageLabel: "ACCESS  CODE",
+      answer: "ACCESS CODE",
+      hint: "One clue word has a repeated symbol at the end - that repeated symbol must be a repeated letter too." },
+    { id:"2", level:3,
+      clues: [
+        { enc:"\u25CE\u2715\u25A1\u25A1", meaning:"FREE" },
+        { enc:"\u25C7\u2606\u2715\u25A1", meaning:"SORE" },
+        { enc:"\u25B3\u25B2\u25CB\u2606", meaning:"AUTO" }
+      ],
+      messageEnc: "\u25C7\u25B3\u25CE\u25A1  \u2715\u2606\u25B2\u25CB\u25A1",
+      messageLabel: "SAFE  ROUTE",
+      answer: "SAFE ROUTE",
+      hint: "Start with the clue word that has two of the same symbol - work out which letter must repeat." }
+  ];
+  const p = pickPoolItem(pool, "cipher");
+  const body = "ENCRYPTED MESSAGE:\n" + p.messageEnc + "\n\nCLUES:\n"
+    + p.clues.map((c,i)=>(i+1)+". \""+c.enc+"\" is a fictional code-word meaning \""+c.meaning+"\".").join("\n")
+    + "\n\nNo key is given - work out the letters from the clues, then decode the message above.\n"
+    + "Submit the decoded message, e.g. solve " + p.messageLabel.replace(/\s+/g," ").trim();
+  return {
+    type: "cipher",
+    title: "ENGINEERING FILE FORMAT ERROR",
+    intro: "ENCRYPTED ENGINEERING FILE DETECTED.",
+    body,
+    accepted: [normalizeAnswer(p.answer)],
+    hint: p.hint,
+    hints: [p.hint, "Once you know two or three letters from one clue, use them to unlock the next clue by elimination - some symbols will already be confirmed."]
+  };
+}
+
+/* ---- LOGIC CIRCUIT ("ACCESS GATE LOGIC") - multiple choice ----
+   3 inputs, a NOT gate, and a combined AND/OR expression. */
+function makeLogicPuzzle(){
+  const pool = [
+    { id:"1", level:2,
+      desc:"The gate activates when: (A AND B) OR (NOT C)",
+      options:[
+        "A is OFF, B is OFF, C is ON",
+        "A is ON, B is OFF, C is ON",
+        "A is OFF, B is ON, C is ON",
+        "A is OFF, B is OFF, C is OFF"
+      ],
+      correct: 4,
+      hint: "Try each option in order: work out (A AND B) first, then NOT C, then combine them with OR." },
+    { id:"2", level:2,
+      desc:"The gate activates when: (NOT A) AND (B OR C)",
+      options:[
+        "A is ON, B is ON, C is ON",
+        "A is OFF, B is OFF, C is OFF",
+        "A is OFF, B is ON, C is OFF",
+        "A is ON, B is OFF, C is OFF"
+      ],
+      correct: 3,
+      hint: "NOT A must be true first (so A must be OFF) - that already rules out two of the four options." }
+  ];
+  const p = pickPoolItem(pool, "logic");
+  const body = p.desc + "\n\n" + p.options.map((o,i)=>(i+1)+". "+o).join("\n");
+  return {
+    type: "logic",
+    title: "ACCESS GATE LOGIC",
+    intro: "ACCESS GATE LOGIC CHALLENGE DETECTED.",
+    body,
+    accepted: [normalizeAnswer(String(p.correct))],
+    hint: p.hint,
+    hints: [p.hint, "Cross out any option that fails even one part of the expression - only one option can survive all parts."]
+  };
+}
+
+/* ---- VISUAL PATTERN ("VISUAL PATTERN LOCK") - multiple choice ----
+   Combines two simultaneous transformations rather than one cycle. */
+function makeVisualPuzzle(){
+  const pool = [
+    { id:"1", level:1,
+      body:"TILE 1: \u25B3\u25CB   TILE 2: \u25CB\u25B3   TILE 3: \u25B3\u25CB   TILE 4: ?",
+      options:["\u25B3\u25CB","\u25CB\u25B3","\u25CB\u25CB","\u25B3\u25B3"],
+      correctIndex: 2,
+      hint: "The two symbols simply swap places every tile - what did tile 3 swap FROM?" },
+    { id:"2", level:3,
+      body:"TILE 1: \u2191 \u2022      TILE 2: \u2192 \u2022\u2022      TILE 3: \u2193 \u2022\u2022\u2022      TILE 4: ?",
+      options:["\u2190 \u2022\u2022\u2022\u2022","\u2191 \u2022\u2022\u2022\u2022","\u2190 \u2022\u2022\u2022","\u2192 \u2022\u2022\u2022\u2022"],
+      correctIndex: 1,
+      hint: "Two things change each tile: the arrow rotates 90 degrees clockwise, AND the number of dots goes up by one." }
+  ];
+  const p = pickPoolItem(pool, "visual");
+  const body = p.body + "\n\nOptions:\n" + p.options.map((o,i)=>(i+1)+". "+o).join("\n");
+  return {
+    type: "visual",
+    title: "VISUAL PATTERN LOCK",
+    intro: "ACCESS PATTERN RECOGNITION SYSTEM ACTIVE.",
+    body,
+    accepted: [normalizeAnswer(String(p.correctIndex + 1))],
+    hint: p.hint,
+    hints: [p.hint, "Track each part of the tile (shape/arrow, and count/position) as its OWN separate pattern before combining them."]
+  };
+}
+
+/* ---- DATA ANALYSIS ("CRASH TEST DATABASE") ----
+   Requires genuine calculation and comparison across several rows. */
+function makeDataPuzzle(){
+  const pool = [
+    { id:"1", level:2,
+      rows:[
+        { label:"A", mass:70, speed:12, time:0.08 },
+        { label:"B", mass:70, speed:12, time:0.24 },
+        { label:"C", mass:70, speed:18, time:0.08 }
+      ], question:"Which test would produce the SMALLEST average force for the same change in momentum?", answer:"B",
+      hint:"Average force depends on change in momentum AND the time it happens over - a longer time means a smaller average force." },
+    { id:"2", level:2,
+      rows:[
+        { label:"A", mass:70, speed:10, time:0.10 },
+        { label:"B", mass:70, speed:20, time:0.10 },
+        { label:"C", mass:70, speed:20, time:0.30 }
+      ], question:"Which test has the GREATEST change in momentum?", answer:"B",
+      hint:"Change in momentum depends only on mass and change in speed - collision time doesn't affect it." },
+    { id:"3", level:3,
+      rows:[
+        { label:"A", mass:70, initial:14, final:0, time:0.08 },
+        { label:"B", mass:70, initial:14, final:0, time:0.24 },
+        { label:"C", mass:70, initial:18, final:0, time:0.12 },
+        { label:"D", mass:60, initial:16, final:0, time:0.10 }
+      ], question:"Which test involves the GREATEST change in momentum?", answer:"C",
+      hint:"Calculate mass x change in speed for each row - the collision time is not needed for this question." },
+    { id:"4", level:3,
+      rows:[
+        { label:"A", mass:70, initial:14, final:0, time:0.08 },
+        { label:"B", mass:70, initial:14, final:0, time:0.24 },
+        { label:"C", mass:70, initial:18, final:0, time:0.12 },
+        { label:"D", mass:60, initial:16, final:0, time:0.10 }
+      ], question:"Which test has the GREATEST magnitude of average force?", answer:"A",
+      hint:"Work out the change in momentum for each row first, then divide by that row's collision time." }
+  ];
+  const p = pickPoolItem(pool, "data");
+  let header, rowsText;
+  if (p.rows[0].initial !== undefined){
+    header = "TEST | MASS   | INITIAL SPEED | FINAL SPEED | COLLISION TIME";
+    rowsText = p.rows.map(r=>r.label+"    | "+r.mass+" kg | "+r.initial+" m/s      | "+r.final+" m/s      | "+r.time+" s").join("\n");
+  } else {
+    header = "TEST | MASS   | SPEED   | COLLISION TIME";
+    rowsText = p.rows.map(r=>r.label+"    | "+r.mass+" kg | "+r.speed+" m/s | "+r.time+" s").join("\n");
+  }
+  const body = header + "\n" + rowsText + "\n\n" + p.question;
+  return {
+    type: "data",
+    title: "CRASH TEST DATABASE",
+    intro: "CRASH TEST DATABASE ACCESS DENIED.",
+    body,
+    accepted: [normalizeAnswer(p.answer)],
+    hint: p.hint,
+    hints: [p.hint, "Write out the calculation for every row rather than estimating - the differences can be deceptively close."]
+  };
+}
+
+/* ---- WEIGHTED PATH ("NETWORK COST ROUTING") ----
+   Find the lowest-cost route across a grid of differently-costed tiles. */
+function makeWeightedPathPuzzle(){
+  const pool = [
+    { id:"1", level:2,
+      size:6,
+      costs:[
+        [1,1,3,3,3,1],
+        [1,5,3,5,5,1],
+        [1,5,1,1,5,1],
+        [1,5,1,5,5,1],
+        [1,1,1,5,3,3],
+        [3,3,1,1,1,1]
+      ],
+      start:[0,0], end:[5,5],
+      answer:"9",
+      hint: "The obvious route along the top and down the side is not the cheapest - check whether a route down the left edge avoids more of the expensive tiles." }
+  ];
+  const p = pickPoolItem(pool, "weighted");
+  const rowsText = p.costs.map((row,r)=> row.map((v,c)=>{
+    if (r===p.start[0] && c===p.start[1]) return " S";
+    if (r===p.end[0] && c===p.end[1]) return " T";
+    return String(v).padStart(2," ");
+  }).join(" ")).join("\n");
+  const body = "NORMAL = 1   HIGH SECURITY = 3   RESTRICTED = 5\n\n"
+    + "S = start, T = target. Each number is the cost to enter that tile\n(moving up/down/left/right only).\n\n"
+    + rowsText
+    + "\n\nWhat is the LOWEST possible total cost from S to T?";
+  return {
+    type: "weighted",
+    title: "NETWORK COST ROUTING",
+    intro: "WEIGHTED ROUTING DEFENCE DETECTED.",
+    body,
+    accepted: [normalizeAnswer(p.answer)],
+    hint: p.hint,
+    hints: [p.hint, "Try tracing two or three different full routes and adding up their total cost - compare the totals rather than guessing."]
+  };
+}
+
+/* ---- LOGIC GRID ("PERSONNEL DATABASE CORRUPTED") ----
+   Classic small assignment logic-grid: 4 engineers x 4 projects. */
+function makeLogicGridPuzzle(){
+  const pool = [
+    { id:"1", level:3,
+      engineers: ["MORGAN","PATEL","CHEN","RIVERA"],
+      projects: ["ORION","AEGIS","VEGA","NOVA"],
+      projectDept: { ORION:"Crash Testing", AEGIS:"Materials", VEGA:"Biomechanics", NOVA:"Occupant Protection" },
+      clues: [
+        "Morgan is not working on Orion.",
+        "Morgan is not working on Vega.",
+        "Patel is working on Aegis.",
+        "Rivera is not working on Orion.",
+        "It is suspected Project Nova is related to Occupant Protection."
+      ],
+      question: "Which engineer is working on the project associated with OCCUPANT PROTECTION?",
+      answer: "MORGAN",
+      hint: "Patel's project is fixed by one clue - use that to narrow down Morgan's project first." }
+  ];
+  const p = pickPoolItem(pool, "logicGrid");
+  const body = "ENGINEERS: " + p.engineers.join(", ") + "\nPROJECTS: " + p.projects.join(", ") +
+    "\n\nCLUES:\n" + p.clues.map((c,i)=>(i+1)+". "+c).join("\n") +
+    "\n\n" + p.question;
+  return {
+    type: "logicGrid",
+    title: "PERSONNEL ASSIGNMENT RECORD",
+    intro: "PERSONNEL DATABASE CORRUPTED.",
+    body,
+    accepted: [normalizeAnswer(p.answer)],
+    hint: p.hint,
+    hints: [p.hint, "Once Morgan's project is fixed, the last two engineers and projects must pair up by elimination."]
+  };
+}
+
+/* ---- PATH CONNECTION ("NETWORK ROUTING DEFENCE") ----
+   Hand-designed, verified boards (not randomly generated). Each was
+   checked so that: a full non-crossing solution exists, most pairs
+   cannot be joined by a straight or trivial route, and at least one
+   pair must route around a wall or another colour's path. */
+function makePathPuzzle(isFinal){
+  const boards = {
+    EASY: [
+      { id:"e1",
+        size:7,
+        blocked:[[0,3],[2,3],[3,3],[5,3],[6,3]],
+        pairs:{ R:[[0,0],[0,6]], B:[[6,0],[6,6]], G:[[2,1],[4,0]], Y:[[2,5],[4,6]] } }
+    ],
+    MEDIUM: [
+      { id:"m1",
+        size:8,
+        blocked:[[0,3],[1,3],[2,3],[5,3],[6,3],[7,3]],
+        pairs:{ R:[[0,0],[0,7]], G:[[7,0],[7,7]], B:[[1,1],[5,0]], Y:[[1,6],[5,7]], O:[[1,5],[6,6]] } }
+    ],
+    HARD: [
+      { id:"h1",
+        size:9,
+        blocked: (()=>{
+          const b = [];
+          for (const r of [0,1,3,4,6,7,8]) b.push([r,2]);
+          for (const r of [0,1,2,4,5,7,8]) b.push([r,6]);
+          return b;
+        })(),
+        pairs:{
+          R:[[0,0],[0,8]], B:[[8,0],[8,8]],
+          G:[[3,1],[4,1]], Y:[[4,7],[5,7]],
+          O:[[1,3],[1,5]], P:[[7,3],[7,5]]
+        } }
+    ]
+  };
+  const rank = difficultyRank();
+  let levelKey = "MEDIUM";
+  if (isFinal){
+    levelKey = rank >= 3 ? "HARD" : "MEDIUM";
+  } else {
+    levelKey = rank <= 1 ? "EASY" : (rank === 2 ? "MEDIUM" : "HARD");
+  }
+  const pool = boards[levelKey];
+  const board = pickPoolItem(pool.map(b=>({ id: levelKey + "_" + b.id, level: rank, board: b })), "path");
+  return {
+    type: "path",
+    title: isFinal ? "FINAL NETWORK ROUTING DEFENCE" : "NETWORK ROUTING DEFENCE",
+    intro: "NETWORK ROUTING DEFENCE DETECTED.",
+    layout: board.board,
+    hint: "Some pairs cannot take the direct route - a wall or another colour is in the way. Work out which pair MUST cross first, and which gap in the wall each colour should use."
+  };
+}
+
+/* =====================================================================
+   PUZZLE TYPE REGISTRY + SESSION NON-REPEAT SELECTION
+   ===================================================================== */
+const PUZZLE_TYPES = {
+  sequence:  { generator: makeSequencePuzzle,       enabled: ()=>ENABLE_SEQUENCE_PUZZLES },
+  deduction: { generator: makeDeductionPuzzle,       enabled: ()=>ENABLE_DEDUCTION_PUZZLES },
+  cipher:    { generator: makeCipherPuzzle,          enabled: ()=>ENABLE_CIPHER_PUZZLES },
+  logic:     { generator: makeLogicPuzzle,           enabled: ()=>ENABLE_LOGIC_PUZZLES },
+  visual:    { generator: makeVisualPuzzle,          enabled: ()=>ENABLE_VISUAL_PUZZLES },
+  data:      { generator: makeDataPuzzle,            enabled: ()=>ENABLE_PHYSICS_PUZZLES },
+  path:      { generator: ()=>makePathPuzzle(false), enabled: ()=>ENABLE_PATH_PUZZLES },
+  weighted:  { generator: makeWeightedPathPuzzle,    enabled: ()=>ENABLE_WEIGHTED_PATH_PUZZLES },
+  logicGrid: { generator: makeLogicGridPuzzle,       enabled: ()=>ENABLE_LOGIC_GRID_PUZZLES }
+};
+
+/* Types allowed to appear as the FIRST defence guarding entry into
+   CLASSIFIED PROJECT (the one that reveals the project code). PATH is
+   deliberately excluded from this list - the path/colour-connection
+   puzzle is reserved as the mandatory "final boss" challenge triggered
+   by EXTRACT/DOWNLOAD once the student is already inside CLASSIFIED
+   PROJECT (see handleCommand's "extract" case and triggerFinalBoss()),
+   so it doesn't also show up as the entry puzzle right before it. */
+const FINAL_PUZZLE_TYPES = ["data","deduction","logicGrid"];
+
+function pickPuzzleType(candidateKeys){
+  const enabledTypes = candidateKeys.filter(t => PUZZLE_TYPES[t].enabled());
+  if (enabledTypes.length === 0) return null;
+  let available = enabledTypes.filter(t => !state.usedPuzzleTypes.includes(t));
+  if (available.length === 0){
+    const lastType = state.usedPuzzleTypes[state.usedPuzzleTypes.length - 1];
+    state.usedPuzzleTypes = [];
+    available = enabledTypes.filter(t => t !== lastType);
+    if (available.length === 0) available = enabledTypes;
+  }
+  const chosen = pickOne(available);
+  state.usedPuzzleTypes.push(chosen);
+  return chosen;
+}
+
+function generatePuzzleForObstacle(nodeId){
+  const isFinal = nodeId === "classified_project";
+  const candidateKeys = isFinal ? FINAL_PUZZLE_TYPES : Object.keys(PUZZLE_TYPES);
+  const type = pickPuzzleType(candidateKeys);
+  let puzzle;
+  if (!type){
+    puzzle = makeSequencePuzzle(); // absolute fallback if every type is disabled
+  } else if (type === "path" && isFinal){
+    puzzle = makePathPuzzle(true);
+  } else {
+    puzzle = PUZZLE_TYPES[type].generator();
+  }
+  puzzle.attempts = 0;
+  puzzle.helpCount = 0;
+  if (isFinal) puzzle.isFinal = true;
+  return puzzle;
+}
+
+function hintThreshold(){
+  const rank = difficultyRank();
+  if (rank === 1) return 1;
+  if (rank === 2) return 2;
+  return 3;
+}
+
+/* ---------------------------------------------------------------------
+   PATH PUZZLE: interactive grid rendered directly into the terminal.
+   Supports any number of colours (2-6) and blocked/wall cells.
+   Works with both mouse click and touch tap (plain click events).
+   --------------------------------------------------------------------- */
+const COLOR_STYLES = {
+  R: { bg:"rgba(255,90,90,0.35)",  fg:"#ffb3b3" },
+  B: { bg:"rgba(80,160,255,0.35)", fg:"#b3d4ff" },
+  G: { bg:"rgba(90,255,120,0.35)", fg:"#b3ffc2" },
+  Y: { bg:"rgba(255,230,90,0.35)", fg:"#fff3b3" },
+  O: { bg:"rgba(255,170,60,0.35)", fg:"#ffd9a3" },
+  P: { bg:"rgba(200,120,255,0.35)",fg:"#e6c2ff" }
+};
+
+function validatePathSolution(pathState, pairs, blocked){
+  const blockedSet = new Set((blocked||[]).map(p=>p.join(",")));
+  function endsMatch(path, pair){
+    const first = path[0], last = path[path.length - 1];
+    const a = (first[0]===pair[0][0] && first[1]===pair[0][1]) && (last[0]===pair[1][0] && last[1]===pair[1][1]);
+    const b = (first[0]===pair[1][0] && first[1]===pair[1][1]) && (last[0]===pair[0][0] && last[1]===pair[0][1]);
+    return a || b;
+  }
+  function contiguous(path){
+    for (let i=1;i<path.length;i++){
+      if (Math.abs(path[i][0]-path[i-1][0]) + Math.abs(path[i][1]-path[i-1][1]) !== 1) return false;
+    }
+    return true;
+  }
+  const colors = Object.keys(pairs);
+  const cellOwner = new Map();
+  for (const color of colors){
+    const path = pathState[color];
+    if (!path || path.length < 2) return false;
+    if (!endsMatch(path, pairs[color])) return false;
+    if (!contiguous(path)) return false;
+    for (const [r,c] of path){
+      if (blockedSet.has(r+","+c)) return false;
+      const key = r+","+c;
+      if (cellOwner.has(key) && cellOwner.get(key) !== color) return false;
+      cellOwner.set(key, color);
+    }
+  }
+  return true;
+}
+
+function renderPathPuzzle(puzzle){
+  const { size, pairs, blocked } = puzzle.layout;
+  const colors = Object.keys(pairs);
+  const blockedSet = new Set((blocked||[]).map(p=>p.join(",")));
+  const pathState = {};
+  colors.forEach(c => { pathState[c] = [pairs[c][0]]; });
+  let activeColor = colors[0];
+
+  const wrap = document.createElement("div");
+  wrap.className = "puzzle-widget";
+
+  const info = document.createElement("div");
+  info.className = "line system";
+  info.textContent = "Choose a colour, then click adjacent grid cells to extend that colour's path from its start terminal to its matching terminal. Click the second-to-last cell to undo a step. Dark cells are blocked.";
+  wrap.appendChild(info);
+
+  const controls = document.createElement("div");
+  controls.className = "pz-controls";
+  const colorButtons = {};
+  colors.forEach(color=>{
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "DRAW " + color;
+    b.addEventListener("click", ()=>{ activeColor = color; redraw(); });
+    controls.appendChild(b);
+    colorButtons[color] = b;
+  });
+  const clearBtn = document.createElement("button"); clearBtn.type="button"; clearBtn.textContent = "CLEAR CURRENT PATH";
+  const submitBtn = document.createElement("button"); submitBtn.type="button"; submitBtn.textContent = "[ SUBMIT SOLUTION ]";
+  controls.appendChild(clearBtn); controls.appendChild(submitBtn);
+  wrap.appendChild(controls);
+
+  const gridEl = document.createElement("div");
+  gridEl.className = "pz-grid";
+  gridEl.style.gridTemplateColumns = "repeat(" + size + ", minmax(22px,32px))";
+  wrap.appendChild(gridEl);
+
+  function isEndpoint(r,c){
+    for (const color of colors){
+      const [p0,p1] = pairs[color];
+      if ((p0[0]===r && p0[1]===c) || (p1[0]===r && p1[1]===c)) return color;
+    }
+    return null;
+  }
+  function ownerOf(r,c, excludeColor){
+    for (const color of colors){
+      if (excludeColor === color) continue;
+      if (pathState[color].some(([pr,pc])=>pr===r && pc===c)) return color;
+    }
+    return null;
+  }
+  function adjacent(a,b){ return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]) === 1; }
+
+  const cellEls = {};
+  for (let r=0; r<size; r++){
+    for (let c=0; c<size; c++){
+      const cell = document.createElement("button");
+      cell.type = "button";
+      if (!blockedSet.has(r+","+c)){
+        cell.addEventListener("click", ()=> onCellClick(r,c));
+      } else {
+        cell.disabled = true;
+      }
+      gridEl.appendChild(cell);
+      cellEls[r+","+c] = cell;
+    }
+  }
+
+  function redraw(){
+    for (let r=0; r<size; r++){
+      for (let c=0; c<size; c++){
+        const key = r+","+c;
+        const cell = cellEls[key];
+        if (blockedSet.has(key)){
+          cell.style.background = "#000";
+          cell.style.color = "#444";
+          cell.textContent = "\u2588";
+          continue;
+        }
+        const ep = isEndpoint(r,c);
+        let owner = null;
+        for (const color of colors){
+          if (pathState[color].some(([pr,pc])=>pr===r && pc===c)){ owner = color; break; }
+        }
+        let bg = "#03150c", fg = "#3dff7a", label = ep || "";
+        if (owner){
+          const style = COLOR_STYLES[owner] || { bg:"rgba(200,200,200,0.35)", fg:"#eee" };
+          bg = style.bg; fg = style.fg;
+          label = ep ? ep : owner.toLowerCase();
+        }
+        cell.style.background = bg;
+        cell.style.color = fg;
+        cell.textContent = label;
+        cell.style.outline = (owner === activeColor) ? "1px solid #fff" : "none";
+      }
+    }
+  }
+
+  function onCellClick(r,c){
+    const path = pathState[activeColor];
+    const last = path[path.length - 1];
+    if (ownerOf(r,c, activeColor)) return; // belongs to another colour
+    if (path.length > 1){
+      const secondLast = path[path.length - 2];
+      if (secondLast[0]===r && secondLast[1]===c){ path.pop(); redraw(); return; }
+    }
+    if (last[0]===r && last[1]===c) return;
+    if (!adjacent(last, [r,c])) return;
+    if (path.some(([pr,pc])=>pr===r && pc===c)) return;
+    path.push([r,c]);
+    redraw();
+  }
+
+  clearBtn.addEventListener("click", ()=>{ pathState[activeColor] = [ pairs[activeColor][0] ]; redraw(); });
+
+  submitBtn.addEventListener("click", ()=>{
+    consumeCommand("SUBMIT SOLUTION");
+    const ok = validatePathSolution(pathState, pairs, blocked);
+    if (ok){
+      appendLine(puzzle.title + (puzzle.isFinal ? " - ROUTE ESTABLISHED." : " BYPASSED."), "bright");
+      onPuzzleSuccess();
+    } else {
+      appendBlock("ROUTING PATTERN INVALID.\n\nTry again.", "warn");
+      puzzle.attempts = (puzzle.attempts || 0) + 1;
+      if (puzzle.attempts >= hintThreshold()){
+        appendLine("HINT: " + puzzle.hint, "system");
+      }
+    }
+    finishTurn();
+  });
+
+  redraw();
+  terminalEl.appendChild(wrap);
+  terminalEl.scrollTop = terminalEl.scrollHeight;
+}
+
+
+/* =====================================================================
+   GAME STATE
+   ===================================================================== */
+let state = null;
+
+function pickRivalFeature(){
+  return SAFETY_FEATURES[Math.floor(Math.random() * SAFETY_FEATURES.length)];
+}
+
+function freshState(){
+  return {
+    commandsUsed: 0,
+    commandsRemaining: MAX_COMMANDS,
+    currentLocation: "public_network",
+    discoveredLocations: new Set(["public_network"]),
+    discoveredFiles: new Set(),
+    helperVirusDiscovered: false,
+    helperVirusInstalled: false,
+    awaitingVirusChoice: false,
+    pendingObstacle: null,        // node id currently blocked by a puzzle
+    currentPuzzle: null,          // the puzzle object guarding pendingObstacle
+    resolvedObstacles: new Set(), // node ids whose defence has been cleared
+    finalCodeRevealed: false,
+    finalCode: null,
+    finalBossSolved: false,
+    traceCount: 0,
+    gameStage: 0, // 0 recon, 1 network access, 2 engineering discovery, 3 occupant protection, 4 classified project
+    targetReached: false,
+    extracted: false,
+    missionComplete: false,
+    rivalFeature: pickRivalFeature(),
+    lastFoundNode: null,
+    unlocked: new Set(["scan","open","search","inspect","back","help"]),
+    usedPuzzleTypes: [],      // session-level: puzzle types already used (cleared on reset)
+    usedPuzzleInstances: [],  // session-level: specific puzzle variants already used
+    warned25: false,
+    warned28: false,
+    warned29: false
+  };
+}
+
+/* Canonical display order for the persistent command panel. */
+const COMMAND_ORDER = ["scan","open","search","inspect","read","analyse","connect","decrypt","solve","trace","download","back","help"];
+
+function maybeUnlock(cmd){
+  if (!state.unlocked.has(cmd)){
+    state.unlocked.add(cmd);
+    appendBlock("NEW CAPABILITY DISCOVERED:\n\n" + cmd.toUpperCase(), "bright");
+    renderCommandPanel();
+  }
+}
+
+function markFileDiscovered(id){
+  if (!state.discoveredFiles.has(id)){
+    state.discoveredFiles.add(id);
+    maybeUnlock("read");
+  }
+}
+
+/* =====================================================================
+   DOM REFS
+   ===================================================================== */
+const briefingScreen = document.getElementById("briefingScreen");
+const gameWrap = document.getElementById("gameWrap");
+const terminalScreen = document.getElementById("terminalScreen");
+const terminalEl = document.getElementById("terminal");
+const cmdInput = document.getElementById("cmdInput");
+const sendBtn = document.getElementById("sendBtn");
+const cmdRemainingEl = document.getElementById("cmdRemaining");
+const cmdPill = document.getElementById("cmdPill");
+const stagePill = document.getElementById("stagePill");
+const stageLabel = document.getElementById("stageLabel");
+const locLabel = document.getElementById("locLabel");
+const commandListEl = document.getElementById("commandList");
+const briefLimit = document.getElementById("briefLimit");
+const cmdTotalEl = document.getElementById("cmdTotal");
+const beginBtn = document.getElementById("beginBtn");
+const resetBtn = document.getElementById("resetBtn");
+const resetModal = document.getElementById("resetModal");
+const cancelReset = document.getElementById("cancelReset");
+const confirmReset = document.getElementById("confirmReset");
+const testPanel = document.getElementById("testPanel");
+const tpSetFeature = document.getElementById("tpSetFeature");
+
+briefLimit.textContent = MAX_COMMANDS;
+cmdTotalEl.textContent = MAX_COMMANDS;
+
+SAFETY_FEATURES.forEach(f=>{
+  const o2 = document.createElement("option"); o2.value=f.name; o2.textContent=f.name;
+  tpSetFeature.appendChild(o2);
+});
+
+/* =====================================================================
+   TERMINAL OUTPUT HELPERS
+   ===================================================================== */
+function appendLine(text, cls){
+  const div = document.createElement("div");
+  div.className = "line " + (cls || "out");
+  div.textContent = text;
+  terminalEl.appendChild(div);
+  terminalEl.scrollTop = terminalEl.scrollHeight;
+}
+function appendBlock(text, cls){
+  text.split("\n").forEach(l => appendLine(l, cls));
+}
+function appendCmdEcho(text){
+  appendLine(text, "cmd");
+}
+
+const STAGE_NAMES = ["RECONNAISSANCE","NETWORK ACCESS","ENGINEERING DISCOVERY","OCCUPANT PROTECTION","CLASSIFIED PROJECT"];
+
+function updateStatusBar(){
+  cmdRemainingEl.textContent = state.commandsRemaining;
+  cmdTotalEl.textContent = MAX_COMMANDS;
+  cmdPill.classList.remove("warn","danger");
+  if (state.commandsRemaining <= urgentThreshold()) cmdPill.classList.add("danger");
+  else if (state.commandsRemaining <= warnThreshold()) cmdPill.classList.add("warn");
+
+  const label = state.missionComplete ? "MISSION COMPLETE" : (STAGE_NAMES[state.gameStage] || "RECONNAISSANCE");
+  stagePill.textContent = "STATUS: " + label;
+  stageLabel.textContent = label;
+  locLabel.textContent = "LOCATION: " + pathOf(state.currentLocation);
+  renderCommandPanel();
+}
+
+function renderCommandPanel(){
+  if (!commandListEl || !state) return;
+  commandListEl.innerHTML = "";
+  COMMAND_ORDER.filter(c => state.unlocked.has(c)).forEach(c=>{
+    const li = document.createElement("li");
+    li.textContent = c;
+    commandListEl.appendChild(li);
+  });
+}
+
+function pathOf(id){
+  const parts = [];
+  let cur = id;
+  while(cur){
+    parts.unshift(NODES[cur].name);
+    cur = NODES[cur].parent;
+  }
+  return "/" + parts.join("/") + "/";
+}
+
+/* =====================================================================
+   NATURAL LANGUAGE INTERPRETATION
+   ===================================================================== */
+function findNode(text){
+  const t = text.toLowerCase();
+  let best = null, bestLen = 0;
+  for (const id in NODES){
+    for (const kw of NODES[id].keywords){
+      if (t.includes(kw) && kw.length > bestLen){
+        best = id; bestLen = kw.length;
+      }
+    }
+  }
+  return best;
+}
+
+function findFileInLocation(locId, text){
+  const loc = NODES[locId];
+  if (!loc || !loc.files) return null;
+  const t = text.toLowerCase();
+  let best = null, bestLen = 0;
+  for (const f of loc.files){
+    for (const kw of f.keywords){
+      if (t.includes(kw) && kw.length > bestLen){ best = f; bestLen = kw.length; }
+    }
+  }
+  return best;
+}
+
+function getIntent(raw){
+  const t = raw.toLowerCase().trim();
+
+  if (state.awaitingVirusChoice){
+    if (/\b(y|yes|install|run|activate|do it|sure|ok|okay)\b/.test(t)) return "virus_yes";
+    if (/\b(n|no|skip|cancel|ignore|not now)\b/.test(t)) return "virus_no";
+  }
+
+  if (/\b(help|hint|stuck|lost|what should i do|where should i go|what now|what do i do|any ideas)\b/.test(t)) return "hint";
+  if (/\btrace\b/.test(t)) return "trace";
+  if (/\b(install|run|activate)\b/.test(t) && /(virus|helper|exe|tool|utility|program)/.test(t)) return "virus_yes";
+  if (/\b(back|go back|previous location|return to)\b/.test(t)) return "back";
+  if (/\bread\b/.test(t)) return "read";
+  if (/\b(analyse|analyze)\b/.test(t)) return "analyse";
+  if (/\bconnect\b/.test(t)) return "connect";
+  if (/\bdecrypt\b/.test(t)) return "decrypt";
+  if (/\b(solve|submit)\b/.test(t)) return "solve";
+  if (/\bdownload\b/.test(t)) return "extract";
+  if (/\bextract\b/.test(t) || /\b(retrieve|grab|steal)\b.*\bfile\b/.test(t)) return "extract";
+  if (/\b(where am i|current location|my location)\b/.test(t)) return "status";
+  if (/^status$/.test(t)) return "status";
+  if (/\b(scan|look around|survey|what.?s here|what is here|show me)\b/.test(t)) return "scan";
+  if (/^look$/.test(t)) return "scan";
+  if (/\b(inspect|examine|look at|look closer)\b/.test(t)) return "inspect";
+  if (/\b(open|enter|go to|go into|navigate to|move to|access|go deeper|infiltrate|breach|break in|get inside)\b/.test(t)) return "navigate";
+  if (/\b(search|find|look for)\b/.test(t)) return "search";
+  return "unknown";
+}
+
+function refersToLast(t){
+  return /\b(it|that|this|that folder|this folder|that file|the folder)\b/.test(t.toLowerCase());
+}
+
+/* =====================================================================
+   CORE GAME LOGIC
+   ===================================================================== */
+function stageForNode(id){
+  return NODES[id].minStage;
+}
+function raiseStage(newStage){
+  if (newStage > state.gameStage) state.gameStage = newStage;
+  if (state.gameStage >= 2) maybeUnlock("analyse");
+}
+
+function enterNode(id){
+  state.currentLocation = id;
+  state.discoveredLocations.add(id);
+  raiseStage(stageForNode(id));
+  const n = NODES[id];
+  appendBlock(n.desc, n.isTarget ? "bright" : "out");
+  if (n.children && n.children.length){
+    const childNames = n.children.map(c => NODES[c].name).join("  |  ");
+    appendLine("SUB-AREAS FOUND: " + childNames, "system");
+  }
+  if (n.files && n.files.length){
+    appendLine("FILES DETECTED: " + n.files.map(f=>f.label).join(", "), "system");
+  }
+  maybeDiscoverVirus();
+}
+
+/* Is this node guarded by an unresolved security defence? */
+function obstacleGuards(nodeId){
+  return OBSTACLE_NODES.hasOwnProperty(nodeId) && !state.resolvedObstacles.has(nodeId);
+}
+
+/* Called whenever a (non-final) puzzle is solved correctly. */
+function onPuzzleSuccess(){
+  const puzzle = state.currentPuzzle;
+  if (puzzle.isFinalBoss){
+    state.finalBossSolved = true;
+    state.pendingObstacle = null;
+    state.currentPuzzle = null;
+    appendBlock("ROUTING VERIFIED.\n\nFINAL SAFEGUARD CLEARED.", "bright");
+    appendLine("Type EXTRACT (or DOWNLOAD) again to retrieve the file.", "system");
+  } else if (puzzle.isFinal){
+    const code = state.rivalFeature.codename + "-" + (1 + rand(9));
+    state.finalCode = code;
+    state.finalCodeRevealed = true;
+    appendBlock("PROJECT CODE IDENTIFIED:\n\n" + code, "bright");
+    appendLine("Try: > connect " + code, "system");
+    maybeUnlock("connect");
+    maybeUnlock("decrypt");
+    maybeUnlock("download");
+    // pendingObstacle / currentPuzzle stay set - part 2 (the code) is still needed.
+  } else {
+    const nodeId = state.pendingObstacle;
+    state.resolvedObstacles.add(nodeId);
+    state.pendingObstacle = null;
+    state.currentPuzzle = null;
+    enterNode(nodeId);
+  }
+}
+
+/* The mandatory "final boss" gate: once inside CLASSIFIED PROJECT, the
+   very first EXTRACT/DOWNLOAD attempt triggers the path/colour-connection
+   puzzle (the hardest board) that must be solved before the file can
+   actually be retrieved. */
+function triggerFinalBoss(){
+  if (state.pendingObstacle === "final_boss"){
+    appendBlock("FINAL SAFEGUARD STILL ACTIVE: " + state.currentPuzzle.title + "\n\nUse the grid above to submit a path.", "warn");
+    return;
+  }
+  state.pendingObstacle = "final_boss";
+  state.currentPuzzle = makePathPuzzle(true);
+  state.currentPuzzle.isFinalBoss = true;
+  state.currentPuzzle.attempts = 0;
+  state.currentPuzzle.helpCount = 0;
+  maybeUnlock("solve");
+  appendLine("", "out");
+  appendBlock("FINAL SAFEGUARD ACTIVATED.\n\nBefore the file can be extracted, the system demands one\nlast verification.\n\n" + state.currentPuzzle.title, "danger");
+  renderPathPuzzle(state.currentPuzzle);
+}
+
+function maybeDiscoverVirus(){
+  if (state.helperVirusDiscovered || state.helperVirusInstalled) return;
+  if (state.commandsUsed >= 3 && state.discoveredLocations.has("internal_network") && Math.random() < 0.6){
+    triggerVirusDiscovery();
+  }
+}
+
+function triggerVirusDiscovery(){
+  state.helperVirusDiscovered = true;
+  state.discoveredFiles.add("helper_virus.exe");
+  state.awaitingVirusChoice = true;
+  appendLine("", "out");
+  appendBlock("UNUSUAL FILE DETECTED\n\nhelper_virus.exe\nSTATUS: UNKNOWN", "warn");
+  appendBlock("This software appears to contain an automated\nnetwork-navigation utility. It cannot affect this\nterminal, your device, or any real system.\n\nINSTALL? Type YES or NO.", "system");
+}
+
+function installVirus(){
+  state.awaitingVirusChoice = false;
+  if (state.helperVirusInstalled){
+    appendLine("HELPER VIRUS already active.", "system");
+    return;
+  }
+  state.helperVirusInstalled = true;
+  appendLine("INSTALLING...", "system");
+  appendLine("[####################] 100%", "bright");
+  appendBlock("HELPER VIRUS ACTIVATED.\n\nNEW COMMAND AVAILABLE: TRACE", "bright");
+  maybeUnlock("trace");
+}
+
+function declineVirus(){
+  state.awaitingVirusChoice = false;
+  appendLine("File left untouched. You can still 'install helper virus' later if you change your mind.", "system");
+}
+
+function traceMessage(){
+  if (!state.helperVirusInstalled){
+    appendLine("TRACE command not available. No helper tools detected.", "system");
+    return;
+  }
+  state.traceCount++;
+  if (state.pendingObstacle && state.currentPuzzle){
+    const puzzle = state.currentPuzzle;
+    if (puzzle.isFinal && state.finalCodeRevealed){
+      appendBlock("[HELPER VIRUS]\n\nYou already have the project code. Use CONNECT or DECRYPT with it.", "system");
+    } else {
+      const strongestHint = (puzzle.hints && puzzle.hints[puzzle.hints.length - 1]) || puzzle.hint;
+      appendBlock("[HELPER VIRUS]\n\nI've found a security gate: " + puzzle.title + ".\n\n" + strongestHint + "\n\nI can't solve it for you.", "system");
+    }
+    return;
+  }
+  if (state.gameStage < 2){
+    appendBlock("[HELPER VIRUS]\n\nI've found something interesting.\nThe rival's engineering team appears to be\nworking somewhere inside ENGINEERING.\n\nTry exploring there.", "system");
+  } else if (state.gameStage === 2 && !state.discoveredLocations.has("occupant_protection")){
+    appendBlock("[HELPER VIRUS]\n\nTheir CRASH TESTING archive cross-references\nanother folder: OCCUPANT PROTECTION.\n\nTry: > open occupant protection", "system");
+  } else if (!state.targetReached){
+    appendBlock("TARGET PATH IDENTIFIED:\n\nENGINEERING\n  -> OCCUPANT PROTECTION\n    -> CLASSIFIED PROJECT\n\nTry: > open classified project", "bright");
+  } else {
+    appendBlock("[HELPER VIRUS]\n\nYou've found it. Type EXTRACT when ready.", "bright");
+  }
+}
+
+function pickHintText(puzzle){
+  const idx = Math.min(puzzle.helpCount || 0, (puzzle.hints ? puzzle.hints.length - 1 : 0));
+  const text = (puzzle.hints && puzzle.hints[idx]) || puzzle.hint;
+  puzzle.helpCount = (puzzle.helpCount || 0) + 1;
+  return text;
+}
+
+function giveHint(){
+  if (state.missionComplete){
+    appendLine("Mission already complete. Review your final report above.", "system");
+    return;
+  }
+  if (state.pendingObstacle && state.currentPuzzle){
+    const puzzle = state.currentPuzzle;
+    if (puzzle.isFinal && state.finalCodeRevealed){
+      appendBlock("HINT: Use the project code you found with CONNECT or DECRYPT, e.g.\n> connect " + state.finalCode, "system");
+    } else if (puzzle.type === "path"){
+      appendBlock("HINT: " + pickHintText(puzzle) + "\nChoose a colour, click the grid to draw, then SUBMIT SOLUTION.", "system");
+    } else {
+      appendBlock("HINT: " + pickHintText(puzzle) + "\nSubmit your answer with: > solve <answer>", "system");
+    }
+    return;
+  }
+  if (state.gameStage === 0){
+    appendBlock("HINT: You're still on the PUBLIC NETWORK.\nTry: > scan the network\nor: > infiltrate the internal network", "system");
+  } else if (state.gameStage === 1){
+    appendBlock("HINT: You're inside the INTERNAL NETWORK.\nVehicle safety research usually lives in ENGINEERING.\nTry: > open engineering", "system");
+  } else if (state.gameStage === 2 && !state.discoveredLocations.has("occupant_protection")){
+    appendBlock("HINT: CRASH TESTING mentioned a related folder.\nTry: > open occupant protection", "system");
+  } else if (!state.targetReached){
+    appendBlock("HINT: OCCUPANT PROTECTION mentioned a sealed file.\nTry: > open classified project", "system");
+  } else {
+    appendBlock("HINT: You've located the classified file.\nType: > extract", "bright");
+  }
+  if (!state.helperVirusInstalled && state.helperVirusDiscovered){
+    appendLine("(You also found an unusual file earlier - install it, and TRACE may help.)", "system");
+  }
+}
+
+function doExtraction(auto){
+  state.extracted = true;
+  state.missionComplete = true;
+  const f = state.rivalFeature;
+  appendLine("", "out");
+  if (auto){
+    appendBlock("SECURITY OVERRIDE\n\nYOU HAVE BEEN DETECTED.\nCOMMAND LIMIT REACHED.\nAUTOMATED EXTRACTION PROTOCOL ACTIVATED.\n\nCONNECTING TO PROJECT DATABASE...", "danger");
+  } else {
+    appendBlock("INITIATING EXTRACTION...\n\nCONNECTING TO PROJECT DATABASE...", "system");
+  }
+  appendLine("[####################] 100%", "bright");
+  appendBlock("ACCESS GRANTED\n\nDOWNLOADING CLASSIFIED FILE...", "system");
+  appendLine("[####################] 100%", "bright");
+  appendLine("FILE RECOVERED.", "bright");
+  appendLine("", "out");
+  appendBlock(
+    "CLASSIFIED ENGINEERING REPORT\n\n" +
+    "PROJECT: " + f.codename + "\n\n" +
+    "SYSTEM:\n" + f.name.toUpperCase() + "\n\n" +
+    "ENGINEERING OBJECTIVE:\n" + f.purpose + "\n\n" +
+    "CRASH TEST DATA:\n" + f.testData.join("\n") + "\n\n" +
+    "ENGINEERING NOTE:\n" + f.mechanism + "\n\n" +
+    "ANALYST PROMPT:\n" + f.physicsClue + "\n\n" +
+    "END OF REPORT", "out"
+  );
+  appendLine("", "out");
+  appendBlock(
+    "MISSION COMPLETE.\n\n" +
+    "You have successfully obtained intelligence about\n" +
+    "the rival company's safety system.\n\n" +
+    "But your work is not finished.\n\n" +
+    "RIVAL COMPANY'S SYSTEM: " + f.name + "\n\n" +
+    "Your engineering team now wants you to compare this\n" +
+    "rival system with the safety feature YOUR team has\n" +
+    "chosen to investigate.\n\n" +
+    "You will need to:\n" +
+    "1. Explain the physics behind your chosen safety feature.\n" +
+    "2. Explain the physics behind the rival's safety feature (" + f.name + ").\n" +
+    "3. Use evidence and physics concepts to compare the two systems.\n" +
+    "4. Evaluate the implications of the two designs for passenger safety.\n\n" +
+    "MISSION COMPLETE. RETURN TO YOUR ENGINEERING TEAM.",
+    "bright"
+  );
+  updateStatusBar();
+  cmdInput.disabled = true;
+  sendBtn.disabled = true;
+}
+
+/* Thresholds scale with MAX_COMMANDS instead of being fixed numbers,
+   so changing MAX_COMMANDS automatically adjusts when warnings fire. */
+function warnThreshold(){ return Math.max(2, Math.round(MAX_COMMANDS * 0.20)); }
+function urgentThreshold(){ return Math.max(1, Math.round(MAX_COMMANDS * 0.10)); }
+
+function applyThresholdWarnings(){
+  const remaining = state.commandsRemaining;
+  const warnAt = warnThreshold();
+  const urgentAt = urgentThreshold();
+  if (remaining <= warnAt && remaining > urgentAt && !state.warned25){
+    state.warned25 = true;
+    appendBlock("WARNING:\n\nYour connection window is closing.\n" + remaining + " COMMANDS REMAINING.", "warn");
+  }
+  if (remaining <= urgentAt && remaining > 1 && !state.warned28){
+    state.warned28 = true;
+    appendBlock("URGENT WARNING:\n\nCONNECTION UNSTABLE.\nONLY " + remaining + " COMMANDS REMAINING.", "warn");
+  }
+  if (remaining === 1 && !state.warned29){
+    state.warned29 = true;
+    appendBlock("FINAL COMMAND AVAILABLE.", "danger");
+  }
+}
+
+/* =====================================================================
+   COMMAND HANDLER
+   ===================================================================== */
+/* Echo a command line and spend one command from the budget. Used both
+   for typed commands and for UI actions like SUBMIT SOLUTION. */
+function consumeCommand(displayText){
+  appendCmdEcho(displayText);
+  state.commandsUsed++;
+  state.commandsRemaining = MAX_COMMANDS - state.commandsUsed;
+}
+
+/* Common bookkeeping run at the end of every turn. */
+function finishTurn(){
+  applyThresholdWarnings();
+  updateStatusBar();
+  if (state.commandsRemaining <= 0 && !state.missionComplete){
+    doExtraction(true);
+  }
+}
+
+function handleSolveAttempt(text){
+  const puzzle = state.currentPuzzle;
+  if (!state.pendingObstacle || !puzzle){
+    appendLine("There's no active challenge here to solve.", "system");
+    return;
+  }
+  if (puzzle.isFinal && state.finalCodeRevealed){
+    appendLine("The project code must be used with CONNECT or DECRYPT, not SOLVE.", "system");
+    return;
+  }
+  if (puzzle.type === "path"){
+    appendLine("Use the DRAW RED / DRAW BLUE buttons and the SUBMIT SOLUTION button below the grid.", "system");
+    return;
+  }
+  const answer = text.replace(/^\s*(solve|submit)\b\s*/i, "").trim();
+  if (!answer){
+    appendLine("Type your answer after SOLVE, e.g. > solve 32", "system");
+    return;
+  }
+  const normalized = normalizeAnswer(answer);
+  if (puzzle.accepted.includes(normalized)){
+    appendLine(puzzle.isFinal ? (puzzle.title + " SOLVED.") : (puzzle.title + " BYPASSED."), "bright");
+    onPuzzleSuccess();
+  } else {
+    puzzle.attempts = (puzzle.attempts || 0) + 1;
+    appendBlock("INCORRECT SOLUTION.\n\nThe defence remains active. Try again.", "warn");
+    if (puzzle.attempts >= hintThreshold()){
+      appendLine("HINT: " + puzzle.hint, "system");
+    }
+  }
+}
+
+function handleCodeAttempt(text, intent){
+  if (!(state.pendingObstacle === "classified_project" && state.finalCodeRevealed)){
+    appendLine((intent === "connect" ? "CONNECT" : "DECRYPT") + " requires a valid project code. Try SOLVE to find one first, or keep exploring.", "system");
+    return;
+  }
+  const cleaned = text.replace(/^\s*(connect|decrypt)\b\s*/i, "").trim().toUpperCase().replace(/\s+/g, "");
+  const target = state.finalCode.toUpperCase();
+  if (cleaned === target || cleaned === target.replace("-", "")){
+    appendLine("AUTHENTICATION ACCEPTED.", "bright");
+    state.resolvedObstacles.add("classified_project");
+    state.pendingObstacle = null;
+    state.currentPuzzle = null;
+    enterNode("classified_project");
+  } else {
+    appendBlock("AUTHENTICATION REJECTED.\n\nThat code is not recognised. Double-check the project code you found.", "warn");
+  }
+}
+
+function beginObstacleEncounter(target){
+  state.pendingObstacle = target;
+  state.currentPuzzle = generatePuzzleForObstacle(target);
+  maybeUnlock("solve");
+  appendLine("", "out");
+  appendBlock((state.currentPuzzle.intro || "SECURITY DEFENCE DETECTED") + "\n\n" + state.currentPuzzle.title, "warn");
+  if (state.currentPuzzle.type === "path"){
+    renderPathPuzzle(state.currentPuzzle);
+  } else {
+    appendBlock(state.currentPuzzle.body, "out");
+    appendLine("Try: > solve <answer>", "system");
+  }
+}
+
+function handleCommand(raw){
+  const text = raw.trim();
+  if (!text) return;
+
+  if (state.missionComplete){
+    appendCmdEcho(text);
+    appendLine("Connection closed. Click RESET MISSION to start a new mission.", "system");
+    return;
+  }
+
+  consumeCommand(text);
+
+  const intent = getIntent(text);
+
+  switch(intent){
+    case "virus_yes":
+      if (!state.helperVirusDiscovered){
+        appendLine("No installable files detected yet. Keep exploring the internal network.", "system");
+      } else {
+        installVirus();
+      }
+      break;
+    case "virus_no":
+      declineVirus();
+      break;
+    case "hint":
+      giveHint();
+      break;
+    case "trace":
+      traceMessage();
+      break;
+    case "back": {
+      const cur = NODES[state.currentLocation];
+      if (cur.parent){
+        appendLine("Returning to " + NODES[cur.parent].name + ".", "system");
+        state.currentLocation = cur.parent;
+        appendBlock(NODES[cur.parent].desc, "out");
+      } else {
+        appendLine("You are already at the top level of the network.", "system");
+      }
+      break;
+    }
+    case "read": {
+      const fileHit = findFileInLocation(state.currentLocation, text);
+      if (fileHit){
+        markFileDiscovered(fileHit.id);
+        appendBlock(fileHit.content, "out");
+      } else {
+        appendLine("Nothing readable found here. Try SCAN first to see what files are present.", "system");
+      }
+      break;
+    }
+    case "inspect": {
+      const fileHit = findFileInLocation(state.currentLocation, text);
+      if (fileHit){
+        markFileDiscovered(fileHit.id);
+        appendBlock(fileHit.content, "out");
+        break;
+      }
+      appendBlock(NODES[state.currentLocation].desc, "out");
+      if (state.pendingObstacle){
+        appendLine("A security defence is active here. Try SOLVE (or CONNECT once you have a code).", "system");
+      }
+      break;
+    }
+    case "analyse": {
+      if (state.pendingObstacle && state.currentPuzzle && state.currentPuzzle.type !== "path"){
+        appendLine("RE-ANALYSING CHALLENGE DATA...", "system");
+        appendBlock(state.currentPuzzle.body, "out");
+      } else if (state.pendingObstacle && state.currentPuzzle){
+        appendLine("Scroll up to review the routing grid, or type 'help' for a reminder.", "system");
+      } else {
+        appendLine("Nothing here needs deeper analysis right now.", "system");
+      }
+      break;
+    }
+    case "connect":
+    case "decrypt":
+      handleCodeAttempt(text, intent);
+      break;
+    case "solve":
+      handleSolveAttempt(text);
+      break;
+    case "status": {
+      appendLine("CURRENT LOCATION: " + pathOf(state.currentLocation), "system");
+      if (state.pendingObstacle){
+        appendLine("ACTIVE DEFENCE: " + state.currentPuzzle.title, "warn");
+      }
+      break;
+    }
+    case "extract": {
+      if (state.currentLocation === "classified_project"){
+        if (!state.finalBossSolved){
+          triggerFinalBoss();
+        } else {
+          doExtraction(false);
+        }
+      } else {
+        appendBlock("EXTRACT FAILED.\n\nNo classified file at this location.\nLocate the CLASSIFIED PROJECT file first.", "warn");
+      }
+      break;
+    }
+    case "scan": {
+      const n = NODES[state.currentLocation];
+      appendLine("SCANNING " + n.name + "...", "system");
+      if (n.children && n.children.length){
+        const childNames = n.children.map(c => NODES[c].name).join("  |  ");
+        appendLine("SUB-AREAS FOUND: " + childNames, "out");
+      } else {
+        appendBlock(n.desc, n.isTarget ? "bright" : "out");
+      }
+      if (n.files && n.files.length){
+        appendLine("FILES DETECTED: " + n.files.map(f=>f.label).join(", "), "out");
+      }
+      if (state.pendingObstacle){
+        appendLine("WARNING: " + state.currentPuzzle.title + " still active nearby.", "warn");
+      }
+      maybeDiscoverVirus();
+      break;
+    }
+    case "search": {
+      const fileHit = findFileInLocation(state.currentLocation, text);
+      if (fileHit){
+        markFileDiscovered(fileHit.id);
+        appendLine("SEARCHING LOCAL FILES...", "system");
+        appendBlock(fileHit.content, "out");
+        break;
+      }
+      let target = null;
+      if (refersToLast(text) && state.lastFoundNode) target = state.lastFoundNode;
+      else target = findNode(text);
+      if (target){
+        state.lastFoundNode = target;
+        appendLine("SEARCHING FOR RELEVANT MATERIAL...", "system");
+        appendBlock("Relevant research located:\n\n" + pathOf(target) + "\n\nTry:\n> open " + NODES[target].name.toLowerCase(), "out");
+      } else {
+        appendBlock("NO MATCHING RECORDS FOUND.\n\nTry a broader search, or type 'scan' to see what's nearby.", "system");
+      }
+      break;
+    }
+    case "navigate": {
+      const fileHit = findFileInLocation(state.currentLocation, text);
+      if (fileHit){
+        markFileDiscovered(fileHit.id);
+        appendBlock(fileHit.content, "out");
+        break;
+      }
+      let target = null;
+      if (refersToLast(text) && state.lastFoundNode) target = state.lastFoundNode;
+      else target = findNode(text);
+      if (target){
+        if (target === state.currentLocation){
+          appendLine("You are already here.", "system");
+        } else if (obstacleGuards(target)){
+          if (state.pendingObstacle === target){
+            const puzzle = state.currentPuzzle;
+            appendBlock("SECURITY DEFENCE STILL ACTIVE: " + puzzle.title + "\n\n" +
+              (puzzle.type === "path" ? "Use the grid above to submit a path." :
+               (puzzle.isFinal && state.finalCodeRevealed ? "Use CONNECT or DECRYPT with the code you found." : "Try: > solve <answer>")), "warn");
+          } else {
+            beginObstacleEncounter(target);
+          }
+        } else {
+          enterNode(target);
+        }
+      } else {
+        appendBlock("ACCESS PATH UNKNOWN.\n\nTry 'scan' to see what's available here,\nor describe what you're looking for.", "system");
+      }
+      break;
+    }
+    default: {
+      const fileHit = findFileInLocation(state.currentLocation, text);
+      if (fileHit){
+        markFileDiscovered(fileHit.id);
+        appendBlock(fileHit.content, "out");
+        break;
+      }
+      const target = findNode(text);
+      if (target){
+        state.lastFoundNode = target;
+        appendLine("SEARCHING FOR RELEVANT MATERIAL...", "system");
+        appendBlock("Relevant research located:\n\n" + pathOf(target) + "\n\nTry:\n> open " + NODES[target].name.toLowerCase(), "out");
+      } else {
+        appendBlock("COMMAND NOT RECOGNIZED.\n\nTry 'scan', 'look around', or describe what\nyou're looking for. Type 'help' for a hint.", "system");
+      }
+    }
+  }
+
+  finishTurn();
+}
+
+/* =====================================================================
+   UI WIRING
+   ===================================================================== */
+function submitCommand(){
+  const val = cmdInput.value;
+  cmdInput.value = "";
+  handleCommand(val);
+}
+sendBtn.addEventListener("click", submitCommand);
+cmdInput.addEventListener("keydown", e=>{
+  if (e.key === "Enter") submitCommand();
+});
+
+beginBtn.addEventListener("click", startMission);
+
+function startMission(){
+  state = freshState();
+  briefingScreen.style.display = "none";
+  gameWrap.style.display = "flex";
+  terminalEl.innerHTML = "";
+  cmdInput.disabled = false;
+  sendBtn.disabled = false;
+  appendBlock(
+    "CONNECTION ESTABLISHED.\n\n" +
+    "AUTOSAFE INDUSTRIES - CYBERSECURITY DIVISION\n" +
+    "OPERATION: CRASH TEST\n\n" +
+    "You are on the rival company's PUBLIC NETWORK.\n" +
+    "Try: > scan the network", "system"
+  );
+  updateStatusBar();
+  cmdInput.focus();
+}
+
+resetBtn.addEventListener("click", ()=>{ resetModal.classList.add("open"); });
+cancelReset.addEventListener("click", ()=>{ resetModal.classList.remove("open"); });
+confirmReset.addEventListener("click", ()=>{
+  resetModal.classList.remove("open");
+  briefingScreen.style.display = "block";
+  gameWrap.style.display = "none";
+});
+
+/* =====================================================================
+   TEACHER TEST MODE (discreet: Ctrl+Shift+T)
+   ===================================================================== */
+document.addEventListener("keydown", e=>{
+  if (e.ctrlKey && e.shiftKey && (e.key === "T" || e.key === "t")){
+    testPanel.classList.toggle("open");
+  }
+});
+if (TEST_MODE) testPanel.classList.add("open");
+
+document.getElementById("tpClose").addEventListener("click", ()=> testPanel.classList.remove("open"));
+document.getElementById("tpReveal").addEventListener("click", ()=>{
+  if (!state) return;
+  appendLine("[TEST MODE] Rival feature is: " + state.rivalFeature.name + " (" + state.rivalFeature.codename + ")", "warn");
+});
+document.getElementById("tpInstallVirus").addEventListener("click", ()=>{
+  if (!state) return;
+  state.helperVirusDiscovered = true;
+  state.awaitingVirusChoice = false;
+  installVirus();
+  updateStatusBar();
+});
+document.getElementById("tpSkipPuzzle").addEventListener("click", ()=>{
+  if (!state || !state.pendingObstacle || !state.currentPuzzle){
+    appendLine("[TEST MODE] No puzzle currently pending.", "warn");
+    return;
+  }
+  appendLine("[TEST MODE] Puzzle skipped: " + state.currentPuzzle.title, "warn");
+  onPuzzleSuccess();
+  updateStatusBar();
+});
+document.getElementById("tpNewPuzzle").addEventListener("click", ()=>{
+  if (!state || !state.pendingObstacle){
+    appendLine("[TEST MODE] No defence currently active to regenerate.", "warn");
+    return;
+  }
+  const nodeId = state.pendingObstacle;
+  appendLine("[TEST MODE] Generating a new puzzle for this defence...", "warn");
+  state.currentPuzzle = generatePuzzleForObstacle(nodeId);
+  if (state.currentPuzzle.type === "path"){
+    renderPathPuzzle(state.currentPuzzle);
+  } else {
+    appendBlock(state.currentPuzzle.title + "\n\n" + state.currentPuzzle.body, "out");
+  }
+});
+document.getElementById("tpJumpExtract").addEventListener("click", ()=>{
+  if (!state) return;
+  Object.keys(OBSTACLE_NODES).forEach(k => state.resolvedObstacles.add(k));
+  state.pendingObstacle = null;
+  state.currentPuzzle = null;
+  state.discoveredLocations.add("internal_network");
+  state.discoveredLocations.add("engineering");
+  state.discoveredLocations.add("occupant_protection");
+  enterNode("classified_project");
+  updateStatusBar();
+});
+document.getElementById("tpApplyFeature").addEventListener("click", ()=>{
+  if (!state) return;
+  const name = tpSetFeature.value;
+  const found = SAFETY_FEATURES.find(f=>f.name === name);
+  if (found){
+    state.rivalFeature = found;
+    appendLine("[TEST MODE] Rival feature forced to: " + found.name, "warn");
+  }
+});
+document.getElementById("tpReset").addEventListener("click", ()=>{
+  briefingScreen.style.display = "block";
+  gameWrap.style.display = "none";
+  testPanel.classList.remove("open");
+});
+
+})();
+</script>
+</body>
+</html>
