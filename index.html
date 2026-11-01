@@ -982,7 +982,7 @@ function makeCipherPuzzle(){
   const body = "ENCRYPTED MESSAGE:\n" + p.messageEnc + "\n\nCLUES:\n"
     + p.clues.map((c,i)=>(i+1)+". \""+c.enc+"\" is a fictional code-word meaning \""+c.meaning+"\".").join("\n")
     + "\n\nNo key is given - work out the letters from the clues, then decode the message above.\n"
-    + "Submit the decoded message, e.g. solve " + p.messageLabel.replace(/\s+/g," ").trim();
+    + "Submit the decoded message, e.g. solve FARE TOAST";
   return {
     type: "cipher",
     title: "ENGINEERING FILE FORMAT ERROR",
